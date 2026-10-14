@@ -20,14 +20,16 @@
     <a href="{{ base }}/controles" class="{{ 'ativo' if aba == 'ctl' }}">Dívidas &amp; poupanças</a>
     <a href="{{ base }}/contas" class="{{ 'ativo' if aba == 'contas' }}">Contas</a>
   </nav>
+  {% if not sem_login %}
   <a href="{{ base }}/senha" title="Trocar senha">⚙</a>
   <form method="post" action="{{ base }}/logout"><button class="link" title="Sair">Sair</button></form>
+  {% endif %}
 </div></header>
 {% endif %}
 <main>
   {% if request.query_params.get('msg') %}<div class="aviso">{{ request.query_params.get('msg') }}</div>{% endif %}
   {% if request.query_params.get('erro') %}<div class="aviso erro">{{ request.query_params.get('erro') }}</div>{% endif %}
-  {% if u and u.senha_padrao %}<div class="aviso alerta">Você ainda está usando a senha padrão. <a href="{{ base }}/senha">Trocar agora</a>.</div>{% endif %}
+  {% if u and u.senha_padrao and not sem_login %}<div class="aviso alerta">Você ainda está usando a senha padrão. <a href="{{ base }}/senha">Trocar agora</a>.</div>{% endif %}
   {% block conteudo %}{% endblock %}
 </main>
 </body>

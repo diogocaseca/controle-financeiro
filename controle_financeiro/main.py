@@ -68,7 +68,19 @@ def ir(request: Request, caminho: str, msg: str | None = None, erro: bool = Fals
 
 def render(request: Request, nome: str, **ctx):
     ctx.setdefault("comp_hoje", comp_hoje())
-    return templates.TemplateResponse(request, nome, {"base": base(request), **ctx})
+    return templates.TemplateResponse(
+        request, nome, {"base": base(request), "sem_login": dispensa_login(request), **ctx}
+    )
+
+
+def dispensa_login(request: Request) -> bool:
+    """Requisição autenticada pelo Home Assistant (Ingress) com login do app desligado."""
+    return (
+        not config.LOGIN_VIA_INGRESS
+        and "x-ingress-path" in request.headers
+        and request.client is not None
+        and request.client.host == config.INGRESS_PROXY_IP
+    )
 
 
 def comp_hoje() -> int:
@@ -107,6 +119,8 @@ async def _expr_invalida(request: Request, exc: ExpressaoInvalida):
 
 
 def usuario(request: Request, db: Session = Depends(banco.get_db)) -> Usuario:
+    if dispensa_login(request):
+        return db.scalar(select(Usuario).order_by(Usuario.id).limit(1))
     uid = request.session.get("uid")
     u = db.get(Usuario, uid) if uid else None
     if not u:
@@ -121,6 +135,8 @@ Logado = Depends(usuario)
 
 @app.get("/login")
 def login_form(request: Request):
+    if dispensa_login(request):
+        return ir(request, "/")
     return render(request, "login.html")
 
 

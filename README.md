@@ -17,6 +17,7 @@ Os dados ficam em `~/.controle-financeiro/` (`financas.db` + `secret.key`). Faç
 |---|---|---|
 | `CF_DATA_DIR` | `~/.controle-financeiro` | pasta do banco |
 | `CF_HOST` / `CF_PORT` | `127.0.0.1` / `8000` | onde o servidor escuta |
+| `CF_LOGIN_VIA_INGRESS` | `1` | `0` dispensa o login do app para acessos pelo Ingress do Home Assistant (vindos do proxy `172.30.32.2`); o acesso direto continua pedindo login |
 | `CF_CARREGAR_SALDO_POSITIVO` | `0` | `1` leva o saldo positivo para o mês seguinte (na planilha só o negativo é levado) |
 
 Testes: `uv run pytest`
