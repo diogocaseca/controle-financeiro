@@ -40,3 +40,16 @@ def test_login_exigido_por_padrao(cliente):
     r = cliente.get("/mes/2026/10", headers=INGRESS, follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"] == "/api/hassio_ingress/abc/login"
+
+
+def test_estaticos_pelo_ingress(cliente):
+    r = cliente.get("/static/style.css", headers=INGRESS)
+    assert r.status_code == 200
+    assert "--accent" in r.text
+
+
+def test_formulario_pelo_ingress(cliente):
+    r = cliente.post("/login", data={"login": "admin", "senha": "admin"}, headers=INGRESS, follow_redirects=False)
+    assert r.headers["location"] == "/api/hassio_ingress/abc/"
+    r = cliente.get("/recorrentes", headers=INGRESS)
+    assert r.status_code == 200 and "Fixos do mês" in r.text

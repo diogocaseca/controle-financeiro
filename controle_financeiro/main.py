@@ -38,7 +38,13 @@ class IngressMiddleware:
         if scope["type"] == "http":
             for k, v in scope.get("headers", []):
                 if k == b"x-ingress-path":
-                    scope = dict(scope, root_path=v.decode().rstrip("/"))
+                    # O Starlette espera que o path venha com o root_path na frente
+                    # (e o remove ao rotear); sem isso os arquivos estáticos dão 404.
+                    prefixo = v.decode().rstrip("/")
+                    path = scope["path"]
+                    if not path.startswith(prefixo + "/"):
+                        path = prefixo + path
+                    scope = dict(scope, root_path=prefixo, path=path, raw_path=path.encode())
                     break
         await self.app(scope, receive, send)
 
