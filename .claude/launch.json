@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "controle-financeiro"
+      ],
+      "port": 8000
+    }
+  ]
+}

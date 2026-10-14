@@ -1,0 +1,24 @@
+<div class="campos">
+  <div><label>Descrição</label><input name="descricao" value="{{ r.descricao if r else '' }}" required placeholder="Ex.: TIM, Condomínio, Salário"></div>
+  <div><label>Conta</label><select name="conta_id">
+    <option value="">— só controle —</option>
+    {% for c in contas %}<option value="{{ c.id }}" {{ 'selected' if r and c.id == r.conta_id }}>{{ c.nome }}</option>{% endfor %}
+  </select></div>
+  <div><label>Valor</label><input name="valor" value="{{ (r.valor_expr or (r.valor|entrada)) if r and r.conta_id else '' }}" placeholder="-156,98/2" autocomplete="off">
+    <div class="ajuda">Negativo = saída, positivo = entrada.</div></div>
+  <div><label>Início</label><input type="month" name="inicio" value="{{ (r.inicio if r else comp_hoje)|mes_input }}" required></div>
+  <div><label>Fim (opcional)</label><input type="month" name="fim" value="{{ r.fim|mes_input if r and r.fim is not none else '' }}"></div>
+</div>
+<p><label style="display:inline-flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="verba" value="1" {{ 'checked' if r and r.verba }}> É uma verba (orçamento)</label>
+  <span class="ajuda">— gastos no cartão marcados com esta verba são descontados dela, como “Limpeza” − Hortifruti na planilha.</span></p>
+<fieldset>
+  <legend>Dívida/poupança (opcional)</legend>
+  <div class="campos">
+    <div><label>Controle</label><select name="controle_id">
+      <option value="">Nenhum</option>
+      {% for c in controles %}<option value="{{ c.id }}" {{ 'selected' if r and c.id == r.controle_id }}>{{ c.nome }}</option>{% endfor %}
+    </select></div>
+    <div><label>Valor lançado no controle</label><input name="controle_valor" value="{{ (r.controle_expr or (r.controle_valor|entrada)) if r and r.controle_id else '' }}" placeholder="78,49" autocomplete="off">
+      <div class="ajuda">Ex.: a parte da Fabiane numa conta dividida.</div></div>
+  </div>
+</fieldset>

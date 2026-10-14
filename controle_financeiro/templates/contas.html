@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% set aba = 'contas' %}
+{% block conteudo %}
+<div class="cabecalho"><div><h1>Contas</h1><div class="sub">A fatura de cada cartão entra como uma linha na conta corrente que a paga.</div></div></div>
+<div class="pilha">
+{% for c in contas + [none] %}
+<section class="card">
+  <h2>{{ c.nome if c else 'Nova conta' }}</h2>
+  <form method="post" action="{{ base }}/contas" class="linha-form" style="margin:0;align-items:end">
+    <input type="hidden" name="id" value="{{ c.id if c else '' }}">
+    <div class="larga"><label>Nome</label><input name="nome" value="{{ c.nome if c else '' }}" required></div>
+    <div><label>Tipo</label><select name="tipo">
+      <option value="corrente" {{ 'selected' if c and not c.eh_cartao }}>Conta corrente</option>
+      <option value="cartao" {{ 'selected' if c and c.eh_cartao }}>Cartão de crédito</option>
+    </select></div>
+    <div><label>Fatura paga por</label><select name="paga_por_id">
+      <option value="">—</option>
+      {% for o in contas if not o.eh_cartao %}<option value="{{ o.id }}" {{ 'selected' if c and c.paga_por_id == o.id }}>{{ o.nome }}</option>{% endfor %}
+    </select></div>
+    <div style="flex:0 1 80px"><label>Ordem</label><input type="number" name="ordem" value="{{ c.ordem if c else contas|length + 1 }}"></div>
+    {% if c %}<label style="flex:0 0 auto;display:flex;gap:6px;align-items:center;color:var(--text);margin-bottom:10px"><input type="checkbox" name="ativa" value="1" {{ 'checked' if c.ativa }}> Ativa</label>{% endif %}
+    <button style="flex:0 0 auto">{{ 'Salvar' if c else 'Criar' }}</button>
+  </form>
+</section>
+{% endfor %}
+</div>
+{% endblock %}

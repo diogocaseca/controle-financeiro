@@ -1,0 +1,5 @@
+{% macro valor(v, sinal=False) -%}
+<span class="{{ 'neg' if v < 0 else ('pos' if v > 0 else '') }}">{{ v|brl(sinal) }}</span>
+{%- endmacro %}
+
+{% macro opcoes_mes(selecionado) -%}{{ selecionado|mes_input }}{%- endmacro %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import valor %}
+{% set aba = 'ctl' %}
+{% block conteudo %}
+<div class="cabecalho"><div><h1>Dívidas &amp; poupanças</h1><div class="sub">Saldos acompanhados mês a mês: acerto com a Fabiane, empréstimos, compra da casa…</div></div></div>
+<section class="card">
+  <table>
+    <thead><tr><th>Nome</th><th class="esconde-m">Tipo</th><th class="num">Saldo atual</th></tr></thead>
+    <tbody>
+    {% for c, saldo in controles %}
+      <tr class="{{ '' if c.ativo else 'sutil' }}">
+        <td><a href="{{ base }}/controles/{{ c.id }}">{{ c.nome }}</a>{% if c.descricao %} <span class="sub">{{ c.descricao }}</span>{% endif %}{% if not c.ativo %} <span class="tag cinza">arquivado</span>{% endif %}</td>
+        <td class="esconde-m">{{ 'Poupança/empréstimo' if c.grupo == 'poupanca' else 'Dívida/acerto' }}</td>
+        <td class="num">{{ valor(saldo) }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="3" class="vazio">Nada cadastrado ainda.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+<section class="card" style="margin-top:16px">
+  <h2>Novo controle</h2>
+  <form method="post" action="{{ base }}/controles" class="linha-form">
+    <input name="nome" placeholder="Nome (ex.: Fabiane, Pai, Compra da casa)" required class="larga">
+    <select name="grupo"><option value="divida">Dívida/acerto</option><option value="poupanca">Poupança/empréstimo</option></select>
+    <input name="descricao" placeholder="Observação (opcional)">
+    <button style="flex:0 0 auto">Criar</button>
+  </form>
+</section>
+{% endblock %}

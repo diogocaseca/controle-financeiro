@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<div class="card" style="max-width:420px">
+  <h2>Trocar senha</h2>
+  <form method="post" action="{{ base }}/senha" class="pilha">
+    <div><label>Senha atual</label><input name="atual" type="password" autocomplete="current-password" required></div>
+    <div><label>Nova senha</label><input name="nova" type="password" autocomplete="new-password" required minlength="4"></div>
+    <div><label>Confirmar nova senha</label><input name="confirma" type="password" autocomplete="new-password" required minlength="4"></div>
+    <button>Salvar</button>
+  </form>
+</div>
+{% endblock %}

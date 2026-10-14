@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "_macros.html" import valor %}
+{% set aba = 'mes' %}
+{% set ano, mes = ano_mes(comp) %}
+{% set ano_atual = ano %}
+{% block titulo %}{{ nome_comp(comp) }} · Finanças{% endblock %}
+
+{% macro form_novo(conta, cartao=False) %}
+<form method="post" action="{{ base }}/lancamentos" class="linha-form">
+  <input type="hidden" name="comp" value="{{ comp }}">
+  <input type="hidden" name="conta_id" value="{{ conta.id }}">
+  <input name="descricao" class="larga" placeholder="Descrição" required aria-label="Descrição">
+  <input name="valor" placeholder="-50 ou -156,98/2" required aria-label="Valor" autocomplete="off">
+  {% if cartao and verbas %}
+  <select name="verba_id" aria-label="Verba">
+    <option value="">Sem verba</option>
+    {% for v in verbas %}<option value="{{ v.id }}">{{ v.descricao }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button style="flex:0 0 auto">Adicionar</button>
+</form>
+{% endmacro %}
+
+{% macro linha(ln) %}
+{% set l = ln.lancamento %}
+<tr>
+  <td>
+    <a href="{{ base }}/lancamentos/{{ l.id }}" style="color:inherit">{{ l.descricao }}</a>
+    {% if l.parcela %}<span class="tag">{{ l.parcela }}/{{ l.parcelada.parcelas }}</span>{% endif %}
+    {% if l.eh_verba %}<span class="tag">verba</span>{% elif l.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}
+    {% if l.verba %}<span class="tag cinza">{{ l.verba.descricao }}</span>{% endif %}
+    {% if l.eh_verba and ln.gasto_cartao %}
+      <div class="expr">verba {{ l.valor|brl }} · já gasto no cartão {{ ln.gasto_cartao|brl }}</div>
+    {% elif l.valor_expr|eh_expr %}
+      <div class="expr">= {{ l.valor_expr }}</div>
+    {% endif %}
+  </td>
+  <td class="num">{{ valor(ln.efetivo) }}</td>
+  <td class="acoes">
+    <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?')">
+      <button class="link" title="Excluir">✕</button>
+    </form>
+  </td>
+</tr>
+{% endmacro %}
+
+{% block conteudo %}
+<div class="cabecalho">
+  <div class="navmes">
+    {% set ap, mp = ano_mes(comp - 1) %}{% set an, mn = ano_mes(comp + 1) %}
+    <a class="botao sec" href="{{ base }}/mes/{{ ap }}/{{ mp }}" title="Mês anterior">←</a>
+    <h1>{{ nome_comp(comp) }}</h1>
+    <a class="botao sec" href="{{ base }}/mes/{{ an }}/{{ mn }}" title="Próximo mês">→</a>
+  </div>
+  {% if comp != comp_hoje %}<a class="botao sec" href="{{ base }}/">Ir para o mês atual</a>{% endif %}
+</div>
+
+{% for rc in resumo.contas %}
+<div class="kpis">
+  <div class="kpi"><div class="r">Saldo anterior</div><div class="v">{{ valor(rc.saldo_anterior) }}</div></div>
+  <div class="kpi"><div class="r">Entradas</div><div class="v">{{ valor(rc.entradas) }}</div></div>
+  <div class="kpi"><div class="r">Saídas</div><div class="v">{{ valor(rc.saidas) }}</div></div>
+  {% for k in rc.cartoes %}<div class="kpi"><div class="r">Fatura {{ k.conta.nome }}</div><div class="v">{{ valor(k.total) }}</div></div>{% endfor %}
+  <div class="kpi"><div class="r">Saldo {{ rc.conta.nome }}</div><div class="v">{{ valor(rc.saldo) }}</div></div>
+</div>
+
+<div class="grade">
+  <section class="card">
+    <h2>{{ rc.conta.nome }} <span class="sub">conta corrente</span></h2>
+    <table>
+      <thead><tr><th>Créditos ou débitos</th><th class="num">Valor R$</th><th></th></tr></thead>
+      <tbody>
+        <tr class="sutil"><td>Saldo do mês anterior</td><td class="num">{{ valor(rc.saldo_anterior) }}</td><td></td></tr>
+        {% for ln in rc.linhas %}{{ linha(ln) }}{% endfor %}
+        {% for k in rc.cartoes %}
+        <tr><td>{{ k.conta.nome }} <span class="tag cinza">fatura</span></td><td class="num">{{ valor(k.total) }}</td><td></td></tr>
+        {% endfor %}
+        <tr class="total"><td>Saldo</td><td class="num">{{ valor(rc.saldo) }}</td><td></td></tr>
+      </tbody>
+    </table>
+    {{ form_novo(rc.conta) }}
+  </section>
+
+  <div class="pilha">
+  {% for k in rc.cartoes %}
+  <section class="card">
+    <h2>{{ k.conta.nome }} <span class="sub">cartão de crédito</span></h2>
+    <table>
+      <thead><tr><th>Débitos</th><th class="num">Valor R$</th><th></th></tr></thead>
+      <tbody>
+        {% for ln in k.linhas %}{{ linha(ln) }}{% else %}<tr><td colspan="3" class="vazio">Nenhuma compra neste mês.</td></tr>{% endfor %}
+        <tr class="total"><td>Fatura do mês</td><td class="num">{{ valor(k.total) }}</td><td></td></tr>
+      </tbody>
+    </table>
+    {{ form_novo(k.conta, cartao=True) }}
+    <p class="ajuda">Compras parceladas são lançadas em <a href="{{ base }}/parceladas">Parcelados</a>.</p>
+  </section>
+  {% endfor %}
+
+  {% if loop.last %}
+  {% for k in resumo.cartoes_avulsos %}
+  <section class="card">
+    <h2>{{ k.conta.nome }} <span class="sub">cartão sem conta de pagamento</span></h2>
+    <table><tbody>
+      {% for ln in k.linhas %}{{ linha(ln) }}{% endfor %}
+      <tr class="total"><td>Fatura do mês</td><td class="num">{{ valor(k.total) }}</td><td></td></tr>
+    </tbody></table>
+    {{ form_novo(k.conta, cartao=True) }}
+  </section>
+  {% endfor %}
+  {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% if resumo.controles %}
+<section class="card" style="margin-top:16px">
+  <h2>Dívidas &amp; poupanças <span class="sub">saldo acumulado até {{ nome_comp(comp, True) }}</span></h2>
+  <table>
+    <thead><tr><th>Controle</th><th class="esconde-m">Movimentos do mês</th><th class="num">Saldo</th></tr></thead>
+    <tbody>
+    {% for rc in resumo.controles %}
+      <tr>
+        <td><a href="{{ base }}/controles/{{ rc.controle.id }}">{{ rc.controle.nome }}</a></td>
+        <td class="esconde-m expr">{% for m in rc.movimentos_mes %}{{ m.descricao }} {{ m.valor|brl(True) }}{% if not loop.last %} · {% endif %}{% endfor %}</td>
+        <td class="num">{{ valor(rc.saldo) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

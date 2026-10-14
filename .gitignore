@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.db
+
+# Planilha com dados pessoais (referência local)
+artifacts/

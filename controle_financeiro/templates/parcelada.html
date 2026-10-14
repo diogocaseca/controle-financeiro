@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import valor %}
+{% set aba = 'parc' %}
+{% block conteudo %}
+<p><a href="{{ base }}/parceladas">← Parcelados</a></p>
+<section class="card">
+  <h2>Editar “{{ p.descricao }}”</h2>
+  <form method="post" action="{{ base }}/parceladas/{{ p.id }}">
+    {% include "_form_parcelada.html" %}
+    <p class="ajuda">Salvar recria todas as parcelas (ajustes manuais em parcelas individuais serão perdidos).</p>
+    <button>Salvar</button>
+  </form>
+</section>
+<section class="card" style="margin-top:16px">
+  <h2>Parcelas</h2>
+  <table><tbody>
+  {% for l in p.lancamentos|sort(attribute='comp') %}
+    {% set a, m = ano_mes(l.comp) %}
+    <tr><td><a href="{{ base }}/mes/{{ a }}/{{ m }}">{{ nome_comp(l.comp) }}</a></td><td>{{ l.parcela }}/{{ p.parcelas }}</td><td class="num">{{ valor(l.valor) }}</td></tr>
+  {% endfor %}
+  </tbody></table>
+  <form method="post" action="{{ base }}/parceladas/{{ p.id }}/excluir" onsubmit="return confirm('Excluir a compra e todas as parcelas?')" style="margin-top:12px">
+    <button class="perigo">Excluir compra</button>
+  </form>
+</section>
+{% endblock %}

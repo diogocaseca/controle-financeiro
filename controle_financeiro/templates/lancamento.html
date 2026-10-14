@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% set aba = 'mes' %}
+{% block conteudo %}
+{% set ano, mes = ano_mes(l.comp) %}
+<p><a href="{{ base }}/mes/{{ ano }}/{{ mes }}">← {{ nome_comp(l.comp) }}</a></p>
+<div class="card" style="max-width:560px">
+  <h2>Editar lançamento</h2>
+  {% if l.recorrente_id %}<div class="aviso">Gerado pelo fixo <a href="{{ base }}/recorrentes/{{ l.recorrente_id }}">“{{ l.recorrente.descricao }}”</a>. Mudanças aqui valem só para {{ nome_comp(l.comp) }}.</div>{% endif %}
+  {% if l.parcelada_id %}<div class="aviso">Parcela {{ l.parcela }}/{{ l.parcelada.parcelas }} de <a href="{{ base }}/parceladas/{{ l.parcelada_id }}">“{{ l.parcelada.descricao }}”</a>. Mudanças aqui valem só para esta parcela.</div>{% endif %}
+  <form method="post" action="{{ base }}/lancamentos/{{ l.id }}" class="pilha">
+    <div><label>Descrição</label><input name="descricao" value="{{ l.descricao }}" required></div>
+    <div class="campos">
+      <div><label>Valor</label><input name="valor" value="{{ l.valor_expr or (l.valor|entrada) }}" required autocomplete="off">
+        <div class="ajuda">Negativo = saída. Aceita contas: <code>-156,98/2</code></div></div>
+      <div><label>Conta</label><select name="conta_id">
+        {% for c in contas %}<option value="{{ c.id }}" {{ 'selected' if c.id == l.conta_id }}>{{ c.nome }}</option>{% endfor %}
+      </select></div>
+      {% if not l.recorrente_id and not l.parcelada_id %}
+      <div><label>Mês</label><input type="month" name="mes" value="{{ l.comp|mes_input }}" required></div>
+      {% endif %}
+      {% if verbas %}
+      <div><label>Verba (gastos no cartão)</label><select name="verba_id">
+        <option value="">Sem verba</option>
+        {% for v in verbas %}<option value="{{ v.id }}" {{ 'selected' if v.id == l.verba_id }}>{{ v.descricao }}</option>{% endfor %}
+      </select></div>
+      {% endif %}
+    </div>
+    <button>Salvar</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import valor %}
+{% set aba = 'parc' %}
+{% block conteudo %}
+<div class="cabecalho"><div><h1>Compras parceladas</h1><div class="sub">Cada parcela é lançada no mês certo e o “5/10” avança sozinho.</div></div></div>
+
+{% macro tabela(lista) %}
+<table>
+  <thead><tr><th>Compra</th><th class="num">Parcela</th><th class="num esconde-m">Total</th><th>Progresso</th><th class="esconde-m">Termina</th></tr></thead>
+  <tbody>
+  {% for p in lista %}
+    {% set atual = [[hoje - p.primeira + 1, 0]|max, p.parcelas]|min %}
+    <tr>
+      <td><a href="{{ base }}/parceladas/{{ p.id }}">{{ p.descricao }}</a> <span class="sub">{{ p.conta.nome }}</span></td>
+      <td class="num">{{ valor(p.valor_parcela(1)) }}</td>
+      <td class="num esconde-m">{{ valor(p.valor_total) }}</td>
+      <td><div style="display:flex;gap:8px;align-items:center"><div class="barra" style="flex:1"><i style="width:{{ (atual / p.parcelas * 100)|round }}%"></i></div><span class="sub">{{ atual }}/{{ p.parcelas }}</span></div></td>
+      <td class="esconde-m sub">{{ nome_comp(p.primeira + p.parcelas - 1, True) }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}
+
+<section class="card">
+  {% if andamento %}{{ tabela(andamento) }}{% else %}<div class="vazio">Nenhuma compra parcelada em andamento.</div>{% endif %}
+</section>
+
+<section class="card" style="margin-top:16px">
+  <h2>Nova compra parcelada</h2>
+  <form method="post" action="{{ base }}/parceladas">
+    {% set p = none %}
+    {% include "_form_parcelada.html" %}
+    <p><button>Lançar parcelas</button></p>
+  </form>
+</section>
+
+{% if quitadas %}
+<details style="margin-top:16px"><summary>Quitadas ({{ quitadas|length }})</summary>
+  <section class="card" style="margin-top:8px">{{ tabela(quitadas) }}</section>
+</details>
+{% endif %}
+{% endblock %}

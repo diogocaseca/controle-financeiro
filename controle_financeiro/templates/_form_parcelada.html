@@ -1,0 +1,15 @@
+<div class="campos">
+  <div><label>Descrição</label><input name="descricao" value="{{ p.descricao if p else '' }}" required placeholder="Ex.: Lava louça"></div>
+  <div><label>Cartão/conta</label><select name="conta_id">
+    {% for c in cartoes %}<option value="{{ c.id }}" {{ 'selected' if p and c.id == p.conta_id }}>{{ c.nome }}{{ '' if c.eh_cartao else ' (conta)' }}</option>{% endfor %}
+  </select></div>
+  <div><label>Valor</label><input name="valor" value="{{ (p.valor_total|entrada) if p else '' }}" required placeholder="1951,30" autocomplete="off"></div>
+  <div><label>O valor é</label><select name="tipo_valor">
+    <option value="total">Total da compra</option>
+    <option value="parcela">De cada parcela</option>
+  </select></div>
+  <div><label>Nº de parcelas</label><input type="number" name="parcelas" min="1" max="120" value="{{ p.parcelas if p else 10 }}" required></div>
+  <div><label>Mês de referência</label><input type="month" name="mes" value="{{ ((p.primeira + p.lancada_desde - 1) if p else comp_hoje)|mes_input }}" required></div>
+  <div><label>Parcela nesse mês</label><input type="number" name="parcela_no_mes" min="1" value="{{ p.lancada_desde if p else 1 }}" required>
+    <div class="ajuda">Para compras já em andamento: ex. “5” se em {{ nome_comp(comp_hoje, True) }} cai a 5/10.</div></div>
+</div>

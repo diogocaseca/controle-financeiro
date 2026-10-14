@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Controle Financeiro{% endblock %}</title>
+  <link rel="stylesheet" href="{{ base }}/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body>
+{% if not sem_menu %}
+{% set a, m = ano_mes(comp_hoje) %}
+<header class="topo"><div class="in">
+  <a class="marca" href="{{ base }}/">💰 Finanças</a>
+  <nav>
+    <a href="{{ base }}/" class="{{ 'ativo' if aba == 'mes' }}">Mês</a>
+    <a href="{{ base }}/ano/{{ ano_atual or a }}" class="{{ 'ativo' if aba == 'ano' }}">Ano</a>
+    <a href="{{ base }}/recorrentes" class="{{ 'ativo' if aba == 'rec' }}">Fixos</a>
+    <a href="{{ base }}/parceladas" class="{{ 'ativo' if aba == 'parc' }}">Parcelados</a>
+    <a href="{{ base }}/controles" class="{{ 'ativo' if aba == 'ctl' }}">Dívidas &amp; poupanças</a>
+    <a href="{{ base }}/contas" class="{{ 'ativo' if aba == 'contas' }}">Contas</a>
+  </nav>
+  <a href="{{ base }}/senha" title="Trocar senha">⚙</a>
+  <form method="post" action="{{ base }}/logout"><button class="link" title="Sair">Sair</button></form>
+</div></header>
+{% endif %}
+<main>
+  {% if request.query_params.get('msg') %}<div class="aviso">{{ request.query_params.get('msg') }}</div>{% endif %}
+  {% if request.query_params.get('erro') %}<div class="aviso erro">{{ request.query_params.get('erro') }}</div>{% endif %}
+  {% if u and u.senha_padrao %}<div class="aviso alerta">Você ainda está usando a senha padrão. <a href="{{ base }}/senha">Trocar agora</a>.</div>{% endif %}
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

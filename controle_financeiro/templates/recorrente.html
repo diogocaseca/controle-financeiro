@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% set aba = 'rec' %}
+{% block conteudo %}
+<p><a href="{{ base }}/recorrentes">← Fixos</a></p>
+<section class="card">
+  <h2>Editar “{{ r.descricao }}”</h2>
+  <form method="post" action="{{ base }}/recorrentes/{{ r.id }}">
+    {% include "_form_recorrente.html" %}
+    <div class="campos" style="align-items:end">
+      <div><label>Aplicar mudanças a partir de</label><input type="month" name="aplicar_de" value="{{ comp_hoje|mes_input }}" required>
+        <div class="ajuda">Meses anteriores ficam como estão. Ajustes manuais feitos nesse lançamento a partir daqui serão substituídos.</div></div>
+      <div><button>Salvar</button></div>
+    </div>
+  </form>
+</section>
+<section class="card" style="margin-top:16px">
+  <h2>Encerrar</h2>
+  <form method="post" action="{{ base }}/recorrentes/{{ r.id }}/encerrar" class="linha-form" onsubmit="return confirm('Encerrar “{{ r.descricao }}”?')">
+    <div><label>Deixar de lançar a partir de</label><input type="month" name="a_partir" value="{{ comp_hoje|mes_input }}" required></div>
+    <div style="display:flex;align-items:end"><button class="perigo">Encerrar</button></div>
+  </form>
+  <p class="ajuda">Se a data for igual ou anterior ao início, o fixo e todos os seus lançamentos são apagados.</p>
+</section>
+{% endblock %}

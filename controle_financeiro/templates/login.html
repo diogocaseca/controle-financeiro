@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% set sem_menu = True %}
+{% block conteudo %}
+<div class="login card">
+  <h1>💰 Controle Financeiro</h1>
+  {% if erro %}<div class="aviso erro">{{ erro }}</div>{% endif %}
+  <form method="post" action="{{ base }}/login" class="pilha">
+    <div><label for="login">Usuário</label><input id="login" name="login" value="{{ login or '' }}" autocomplete="username" autofocus required></div>
+    <div><label for="senha">Senha</label><input id="senha" name="senha" type="password" autocomplete="current-password" required></div>
+    <button style="width:100%">Entrar</button>
+  </form>
+</div>
+{% endblock %}
