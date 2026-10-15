@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -319,6 +319,8 @@ def editar_recorrente_form(request: Request, rid: int, _u: Usuario = Logado, db:
     r = db.get(Recorrente, rid) or _404()
     return render(
         request, "recorrente.html", r=r,
+        n_lancamentos=db.scalar(select(func.count()).where(Lancamento.recorrente_id == r.id)),
+        n_movimentos=db.scalar(select(func.count()).where(Movimento.recorrente_id == r.id)),
         contas=db.scalars(select(Conta).order_by(Conta.ordem)).all(),
         controles=db.scalars(select(Controle).order_by(Controle.nome)).all(),
     )
@@ -369,6 +371,15 @@ def editar_recorrente(
     servicos.sincronizar_recorrente(db, r, comp_de(aplicar_de))
     db.commit()
     return ir(request, "/recorrentes", f"“{r.descricao}” atualizado.")
+
+
+@app.post("/recorrentes/{rid}/excluir")
+def excluir_recorrente(request: Request, rid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
+    r = db.get(Recorrente, rid) or _404()
+    nome = r.descricao
+    servicos.excluir_recorrente(db, r)
+    db.commit()
+    return ir(request, "/recorrentes", f"“{nome}” excluído.")
 
 
 @app.post("/recorrentes/{rid}/encerrar")

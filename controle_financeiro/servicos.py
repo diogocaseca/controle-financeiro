@@ -3,7 +3,7 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from . import config
@@ -69,12 +69,22 @@ def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
 def encerrar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
     """Para de lançar o recorrente a partir de `a_partir` (o histórico anterior fica)."""
     if a_partir <= r.inicio:
-        db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id))
-        db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id))
-        db.delete(r)
+        excluir_recorrente(db, r)
         return
     r.fim = a_partir - 1
     sincronizar_recorrente(db, r, a_partir)
+
+
+def excluir_recorrente(db: Session, r: Recorrente) -> None:
+    """Apaga o fixo e tudo o que ele lançou em todos os meses.
+
+    Gastos no cartão e parcelados que usavam o fixo como verba ficam sem verba.
+    """
+    db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id))
+    db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id))
+    db.execute(update(Lancamento).where(Lancamento.verba_id == r.id).values(verba_id=None, verba_valor=None))
+    db.execute(update(Parcelada).where(Parcelada.verba_id == r.id).values(verba_id=None, verba_valor=None, verba_expr=""))
+    db.delete(r)
 
 
 def gerar_parcelas(db: Session, p: Parcelada) -> None:

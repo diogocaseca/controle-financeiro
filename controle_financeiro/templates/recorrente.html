@@ -19,6 +19,15 @@
     <div><label>Deixar de lançar a partir de</label><input type="month" name="a_partir" value="{{ comp_hoje|mes_input }}" required></div>
     <div style="display:flex;align-items:end"><button class="perigo">Encerrar</button></div>
   </form>
-  <p class="ajuda">Se a data for igual ou anterior ao início, o fixo e todos os seus lançamentos são apagados.</p>
+  <p class="ajuda">Para de lançar a partir do mês escolhido; os meses anteriores ficam como estão. Se a data for igual ou anterior ao início, o fixo é excluído.</p>
+</section>
+<section class="card" style="margin-top:16px">
+  <h2>Excluir</h2>
+  <p class="ajuda" style="margin-top:0">Apaga o fixo e tudo o que ele lançou em todos os meses: {{ n_lancamentos }} lançamento(s){% if n_movimentos %} e {{ n_movimentos }} movimento(s) em {{ r.controle.nome if r.controle else 'controles' }}{% endif %}.
+    {% if r.verba %}Gastos no cartão e parcelados marcados com esta verba ficam sem verba.{% endif %}
+    Para manter o histórico, use “Encerrar”.</p>
+  <form method="post" action="{{ base }}/recorrentes/{{ r.id }}/excluir" onsubmit="return confirm('Excluir “{{ r.descricao }}” e todos os seus lançamentos? Isso não pode ser desfeito.')">
+    <button class="perigo">Excluir fixo</button>
+  </form>
 </section>
 {% endblock %}

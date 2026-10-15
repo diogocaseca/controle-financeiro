@@ -69,3 +69,33 @@ def test_parcelada_com_verba_pela_tela(cliente):
     })
     r = cliente.get("/mes/2026/10")
     assert "-500,00" in r.text and "desconta 100,00 da Limpeza" in r.text
+
+
+def test_excluir_fixo(cliente):
+    from controle_financeiro.models import Movimento, Parcelada, Recorrente
+
+    cliente.get("/mes/2026/10")
+    cliente.get("/mes/2026/11")
+    cliente.post("/controles", data={"nome": "Fabiane"})
+    cliente.post("/recorrentes", data={"descricao": "TIM", "conta_id": "1", "valor": "-156,98/2", "inicio": "2026-10",
+                                       "controle_id": "1", "controle_valor": "78,49"})
+    cliente.post("/recorrentes", data={"descricao": "Limpeza", "conta_id": "1", "valor": "-600", "verba": "1", "inicio": "2026-10"})
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 2, "descricao": "Hortifruti", "valor": "-50", "verba_id": "2"})
+    cliente.post("/parceladas", data={"descricao": "Lava louça", "conta_id": 2, "valor": "100", "parcelas": 2,
+                                      "mes": "2026-10", "verba_id": "2", "verba_valor": "50"})
+
+    r = cliente.get("/recorrentes/1")
+    assert "2 lançamento(s) e 2 movimento(s) em Fabiane" in r.text
+    assert "/recorrentes/1/excluir" in cliente.get("/recorrentes").text
+
+    cliente.post("/recorrentes/1/excluir")
+    cliente.post("/recorrentes/2/excluir")
+
+    with banco.SessionLocal() as db:
+        assert db.scalars(select(Recorrente)).all() == []
+        assert db.scalars(select(Movimento)).all() == []
+        restantes = db.scalars(select(Lancamento)).all()
+        assert {l.descricao for l in restantes} == {"Hortifruti", "Lava louça"}
+        assert all(l.verba_id is None and l.verba_valor is None for l in restantes)
+        assert db.scalar(select(Parcelada)).verba_id is None
+    assert cliente.get("/mes/2026/10").status_code == 200
