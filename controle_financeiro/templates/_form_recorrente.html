@@ -19,6 +19,43 @@
       {% for c in controles %}<option value="{{ c.id }}" {{ 'selected' if r and c.id == r.controle_id }}>{{ c.nome }}</option>{% endfor %}
     </select></div>
     <div><label>Valor lançado no controle</label><input name="controle_valor" value="{{ (r.controle_expr or (r.controle_valor|entrada)) if r and r.controle_id else '' }}" placeholder="78,49" autocomplete="off">
-      <div class="ajuda">Ex.: a parte da Fabiane numa conta dividida.</div></div>
+      <div class="ajuda">Ao escolher o controle, é preenchido com o valor acima de sinal invertido (ex.: a parte da Fabiane numa conta dividida). Pode editar.</div></div>
   </div>
 </fieldset>
+<script>
+(() => {
+  const form = document.currentScript.closest("form");
+  const valor = form.querySelector('[name="valor"]');
+  const controle = form.querySelector('[name="controle_id"]');
+  const destino = form.querySelector('[name="controle_valor"]');
+
+  // Inverte o sinal da expressão: "-156,98/2" → "156,98/2"; "-999,25-(195/2)" → "-(-999,25-(195/2))".
+  function inverter(expr) {
+    const e = expr.trim().replace(/^=/, "");
+    if (!e) return "";
+    let nivel = 0;
+    for (let i = 1; i < e.length; i++) {
+      const c = e[i];
+      if (c === "(") nivel++;
+      else if (c === ")") nivel--;
+      else if (nivel === 0 && (c === "+" || c === "-") && !/[*\/(]/.test(e[i - 1])) return `-(${e})`;
+    }
+    if (e[0] === "-") return e.slice(1);
+    if (e[0] === "+") return "-" + e.slice(1);
+    return "-" + e;
+  }
+
+  function preencher() {
+    if (controle.value && (destino.value === "" || destino.dataset.auto)) {
+      destino.value = inverter(valor.value);
+      destino.dataset.auto = "1";
+    } else if (!controle.value && destino.dataset.auto) {
+      destino.value = "";
+    }
+  }
+
+  controle.addEventListener("change", preencher);
+  valor.addEventListener("input", () => { if (destino.dataset.auto) preencher(); });
+  destino.addEventListener("input", () => { delete destino.dataset.auto; });
+})();
+</script>
