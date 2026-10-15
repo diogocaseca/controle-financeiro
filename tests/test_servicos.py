@@ -202,3 +202,42 @@ def test_parcelada_desconta_da_verba(db):
     db.commit()
     linha = next(l for l in servicos.resumo_mes(db, JAN).contas[0].linhas if l.lancamento.eh_verba)
     assert linha.efetivo == -50000
+
+
+def test_ano_preve_meses_nao_abertos_sem_gravar(db):
+    from controle_financeiro.models import MesGerado
+
+    nuconta, nubank = contas(db)
+    fixo(db, nuconta, "Salário", "100")
+    fixo(db, nuconta, "Aluguel", "-150")  # saldo negativo é carregado
+    limpeza = fixo(db, nuconta, "Limpeza", "-60", verba=True)
+    servicos.garantir_mes(db, JAN)
+    p = Parcelada(descricao="TV", conta_id=nubank.id, valor_total=-3000, parcelas=3, primeira=JAN + 1,
+                  lancada_desde=1, verba_id=limpeza.id)
+    db.add(p)
+    db.flush()
+    servicos.gerar_parcelas(db, p)
+    db.add(Lancamento(conta_id=nuconta.id, comp=JAN + 2, descricao="Bônus", valor=5000))
+    db.commit()
+
+    antes = (db.query(Lancamento).count(), db.query(MesGerado).count())
+    ano = servicos.resumo_ano(db, 2027)
+    assert (db.query(Lancamento).count(), db.query(MesGerado).count()) == antes  # nada gravado
+
+    previstos = {c: (rs[0].saldo, prev) for c, rs, prev in ano if rs}
+    assert previstos[JAN][1] is False and previstos[JAN + 1][1] is True
+    assert len(previstos) == 12
+
+    # Abrindo os meses de verdade, os saldos batem com a previsão
+    for c in range(JAN, JAN + 12):
+        assert servicos.resumo_mes(db, c).contas[0].saldo == previstos[c][0], c
+    assert all(not prev for _, _, prev in servicos.resumo_ano(db, 2027))
+
+
+def test_ano_antes_do_inicio(db):
+    nuconta, _ = contas(db)
+    fixo(db, nuconta, "Salário", "100", inicio=JAN + 9)
+    servicos.garantir_mes(db, JAN + 9)
+    ano = servicos.resumo_ano(db, 2027)
+    assert [rs is None for _, rs, _ in ano] == [True] * 9 + [False] * 3
+    assert servicos.resumo_ano(db, 2026) == [(c, None, False) for c in range(2026 * 12, 2026 * 12 + 12)]

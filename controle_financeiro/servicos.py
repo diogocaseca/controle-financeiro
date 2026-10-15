@@ -157,8 +157,19 @@ def _lancamentos(db: Session, comp: int) -> dict[int, list[Lancamento]]:
     return por_conta
 
 
-def _montar(db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[int, int]):
+def _montar(
+    db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[int, int],
+    previsao: list[Recorrente] | None = None,
+):
+    """Monta o resumo do mês. Com `previsao`, soma os fixos ativos como se o mês
+    já tivesse sido aberto, sem gravar nada (usado no resumo anual)."""
     lancs = _lancamentos(db, comp)
+    for r in previsao or []:
+        if r.conta_id and r.ativa_em(comp):
+            lancs[r.conta_id].append(Lancamento(
+                conta_id=r.conta_id, comp=comp, descricao=r.descricao, valor=r.valor,
+                recorrente_id=r.id, eh_verba=r.verba, confirmado=False,
+            ))
     gasto_verba: dict[int, int] = defaultdict(int)
     for c in contas:
         if c.eh_cartao:
@@ -239,24 +250,29 @@ def resumo_controles(db: Session, comp: int) -> list[ResumoControle]:
     return saida
 
 
-def resumo_ano(db: Session, ano: int) -> list[tuple[int, list[ResumoConta]] | tuple[int, None]]:
-    """Resumo de cada mês do ano (None para meses ainda não abertos)."""
+def resumo_ano(db: Session, ano: int) -> list[tuple[int, list[ResumoConta] | None, bool]]:
+    """Resumo de cada mês do ano: (competência, resumos, previsto).
+
+    Meses ainda não abertos a partir do primeiro mês usado no sistema são
+    previstos (fixos ativos + parcelas e lançamentos já existentes), sem gravar
+    nada. Meses anteriores ao início do uso ficam como None.
+    """
     gerados = set(db.scalars(select(MesGerado.comp)))
+    primeiro, ultimo = ano * 12, ano * 12 + 11
+    if not gerados or min(gerados) > ultimo:
+        return [(c, None, False) for c in range(primeiro, ultimo + 1)]
+
     contas = _contas(db)
-    meses = []
-    primeiro = ano * 12
-    # saldo carregado de antes do ano
+    recorrentes = list(db.scalars(select(Recorrente)))
+    inicio = min(gerados)
+    meses = [(c, None, False) for c in range(primeiro, min(inicio, ultimo + 1))]
     anterior: dict[int, int] = {}
-    if primeiro - 1 in gerados:
-        anterior = {r.conta.id: _carregar(r.saldo) for r in resumo_mes(db, primeiro - 1).contas}
-    for c in range(primeiro, primeiro + 12):
-        if c not in gerados:
-            meses.append((c, None))
-            anterior = {}
-            continue
-        resumos, _ = _montar(db, c, contas, anterior)
-        meses.append((c, resumos))
+    for c in range(inicio, ultimo + 1):
+        previsto = c not in gerados
+        resumos, _ = _montar(db, c, contas, anterior, recorrentes if previsto else None)
         anterior = {r.conta.id: _carregar(r.saldo) for r in resumos}
+        if c >= primeiro:
+            meses.append((c, resumos, previsto))
     return meses
 
 

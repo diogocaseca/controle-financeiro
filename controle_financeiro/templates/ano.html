@@ -16,10 +16,10 @@
     <thead><tr><th>Mês</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fatura</th><th class="num">Saldo</th></tr></thead>
     <tbody>
     {% set tot = namespace(e=0, s=0, f=0) %}
-    {% for comp, contas in meses %}
+    {% for comp, contas, previsto in meses %}
       {% set a, m = ano_mes(comp) %}
       <tr class="{{ '' if contas else 'sutil' }}">
-        <td><a href="{{ base }}/mes/{{ a }}/{{ m }}">{{ MESES[m - 1] }}</a></td>
+        <td><a href="{{ base }}/mes/{{ a }}/{{ m }}">{{ MESES[m - 1] }}</a>{% if previsto %}<span class="tag cinza" title="Calculado com os fixos e parcelas; vira real quando o mês for aberto">previsto</span>{% endif %}</td>
         {% if contas %}
           {% set e = contas|sum(attribute='entradas') %}{% set s = contas|sum(attribute='saidas') %}
           {% set f = namespace(v=0) %}{% for rc in contas %}{% for k in rc.cartoes %}{% set f.v = f.v + k.total %}{% endfor %}{% endfor %}
@@ -27,13 +27,14 @@
           <td class="num">{{ valor(e) }}</td><td class="num">{{ valor(s) }}</td><td class="num">{{ valor(f.v) }}</td>
           <td class="num"><b>{{ valor(contas|sum(attribute='saldo')) }}</b></td>
         {% else %}
-          <td colspan="4" class="num sub">ainda não aberto</td>
+          <td colspan="4" class="num sub">antes do início do uso</td>
         {% endif %}
       </tr>
     {% endfor %}
       <tr class="total"><td>Total</td><td class="num">{{ valor(tot.e) }}</td><td class="num">{{ valor(tot.s) }}</td><td class="num">{{ valor(tot.f) }}</td><td></td></tr>
     </tbody>
   </table>
-  <p class="ajuda">Saídas incluem a fatura do cartão. Saldo inclui o saldo carregado do mês anterior.</p>
+  <p class="ajuda">Saídas incluem a fatura do cartão. Saldo inclui o saldo carregado do mês anterior.
+    Meses “previsto” ainda não foram abertos: são calculados com os fixos, as parcelas e os lançamentos já feitos para eles.</p>
 </section>
 {% endblock %}
