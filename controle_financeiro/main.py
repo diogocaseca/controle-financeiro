@@ -16,7 +16,9 @@ from .dinheiro import (
     MESES, ExpressaoInvalida, ano_mes, avaliar, competencia, eh_expressao, formatar, nome_competencia,
     para_entrada,
 )
-from .models import Conta, Controle, Lancamento, Movimento, Parcelada, Recorrente, Usuario
+from .models import (
+    Conta, Controle, FaturaConfirmada, Lancamento, Movimento, Parcelada, Recorrente, Usuario,
+)
 
 AQUI = Path(__file__).parent
 
@@ -261,6 +263,28 @@ def excluir_lancamento(request: Request, lid: int, _u: Usuario = Logado, db: Ses
     l = db.get(Lancamento, lid) or _404()
     comp = l.comp
     db.delete(l)
+    db.commit()
+    return _volta_mes(request, comp)
+
+
+@app.post("/lancamentos/{lid}/confirmar")
+def confirmar_lancamento(request: Request, lid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
+    l = db.get(Lancamento, lid) or _404()
+    l.confirmado = not l.confirmado
+    db.commit()
+    return _volta_mes(request, l.comp)
+
+
+@app.post("/faturas/{conta_id}/{comp}/confirmar")
+def confirmar_fatura(
+    request: Request, conta_id: int, comp: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db),
+):
+    db.get(Conta, conta_id) or _404()
+    f = db.get(FaturaConfirmada, (conta_id, comp))
+    if f:
+        db.delete(f)
+    else:
+        db.add(FaturaConfirmada(conta_id=conta_id, comp=comp))
     db.commit()
     return _volta_mes(request, comp)
 

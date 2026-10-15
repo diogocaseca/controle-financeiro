@@ -7,7 +7,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from . import config
-from .models import Conta, Controle, Lancamento, MesGerado, Movimento, Parcelada, Recorrente
+from .models import (
+    Conta, Controle, FaturaConfirmada, Lancamento, MesGerado, Movimento, Parcelada, Recorrente,
+)
 
 
 # ---------------------------------------------------------------- geração ---
@@ -33,11 +35,12 @@ def garantir_mes(db: Session, comp: int) -> None:
     db.commit()
 
 
-def _aplicar_recorrente(db: Session, r: Recorrente, comp: int) -> None:
+def _aplicar_recorrente(db: Session, r: Recorrente, comp: int, confirmado: bool = False) -> None:
     if r.conta_id:
         db.add(Lancamento(
             conta_id=r.conta_id, comp=comp, descricao=r.descricao, valor=r.valor,
             valor_expr=r.valor_expr, recorrente_id=r.id, eh_verba=r.verba, ordem=r.ordem,
+            confirmado=confirmado,
         ))
     if r.controle_id and r.controle_valor:
         db.add(Movimento(
@@ -53,12 +56,14 @@ def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
     meses anteriores ficam como estão.
     """
     db.flush()
+    confirmados = set(db.scalars(select(Lancamento.comp).where(
+        Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir, Lancamento.confirmado)))
     db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir))
     db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id, Movimento.comp >= a_partir))
     meses = db.scalars(select(MesGerado.comp).where(MesGerado.comp >= a_partir)).all()
     for c in meses:
         if r.ativa_em(c):
-            _aplicar_recorrente(db, r, c)
+            _aplicar_recorrente(db, r, c, confirmado=c in confirmados)
 
 
 def encerrar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
@@ -74,11 +79,14 @@ def encerrar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
 
 def gerar_parcelas(db: Session, p: Parcelada) -> None:
     db.flush()
+    confirmadas = set(db.scalars(select(Lancamento.parcela).where(
+        Lancamento.parcelada_id == p.id, Lancamento.confirmado)))
     db.execute(delete(Lancamento).where(Lancamento.parcelada_id == p.id))
     for n in range(max(1, p.lancada_desde), p.parcelas + 1):
         db.add(Lancamento(
             conta_id=p.conta_id, comp=p.primeira + n - 1, descricao=p.descricao,
             valor=p.valor_parcela(n), parcelada_id=p.id, parcela=n, ordem=100,
+            confirmado=n in confirmadas,
         ))
 
 
@@ -96,6 +104,7 @@ class Cartao:
     conta: Conta
     linhas: list[Linha]
     total: int
+    confirmada: bool = False
 
 
 @dataclass
@@ -107,6 +116,8 @@ class ResumoConta:
     saldo: int
     entradas: int = 0
     saidas: int = 0
+    pendentes: int = 0  # quantos itens ainda não foram confirmados
+    valor_pendente: int = 0
 
 
 @dataclass
@@ -145,11 +156,12 @@ def _montar(db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[in
                 if l.verba_id:
                     gasto_verba[l.verba_id] += l.valor
 
+    faturas_ok = set(db.scalars(select(FaturaConfirmada.conta_id).where(FaturaConfirmada.comp == comp)))
     cartoes: dict[int, Cartao] = {}
     for c in contas:
         if c.eh_cartao:
             linhas = [Linha(l, l.valor) for l in lancs[c.id]]
-            cartoes[c.id] = Cartao(c, linhas, sum(l.valor for l in lancs[c.id]))
+            cartoes[c.id] = Cartao(c, linhas, sum(l.valor for l in lancs[c.id]), c.id in faturas_ok)
 
     resumos = []
     for c in contas:
@@ -165,10 +177,13 @@ def _montar(db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[in
         meus_cartoes = [k for k in cartoes.values() if k.conta.paga_por_id == c.id]
         anterior = saldo_anterior.get(c.id, 0)
         valores = [ln.efetivo for ln in linhas] + [k.total for k in meus_cartoes]
+        abertos = [ln.efetivo for ln in linhas if not ln.lancamento.confirmado and ln.efetivo] + [
+            k.total for k in meus_cartoes if not k.confirmada and k.total]
         resumos.append(ResumoConta(
             conta=c, saldo_anterior=anterior, linhas=linhas, cartoes=meus_cartoes,
             saldo=anterior + sum(valores),
             entradas=sum(v for v in valores if v > 0), saidas=sum(v for v in valores if v < 0),
+            pendentes=len(abertos), valor_pendente=sum(abertos),
         ))
     pagos = {k.conta.id for r in resumos for k in r.cartoes}
     avulsos = [k for k in cartoes.values() if k.conta.id not in pagos]

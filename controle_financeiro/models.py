@@ -127,6 +127,8 @@ class Lancamento(Base):
     # Gasto no cartão que consome uma verba (Recorrente com verba=True).
     verba_id: Mapped[int | None] = mapped_column(ForeignKey("recorrentes.id", ondelete="SET NULL"))
     eh_verba: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Marcação "verde" da planilha: recebido de fato / débito automático cadastrado.
+    confirmado: Mapped[bool] = mapped_column(Boolean, default=False)
     ordem: Mapped[int] = mapped_column(Integer, default=0)
 
     conta: Mapped[Conta] = relationship()
@@ -147,6 +149,15 @@ class Movimento(Base):
     recorrente_id: Mapped[int | None] = mapped_column(ForeignKey("recorrentes.id", ondelete="SET NULL"))
 
     controle: Mapped[Controle] = relationship(back_populates="movimentos")
+
+
+class FaturaConfirmada(Base):
+    """Fatura de um cartão num mês marcada como confirmada (paga/débito cadastrado)."""
+
+    __tablename__ = "faturas_confirmadas"
+
+    conta_id: Mapped[int] = mapped_column(ForeignKey("contas.id", ondelete="CASCADE"), primary_key=True)
+    comp: Mapped[int] = mapped_column(Integer, primary_key=True)
 
 
 class MesGerado(Base):

@@ -33,9 +33,25 @@ def iniciar(url: str | None = None) -> Engine:
 
     SessionLocal.configure(bind=engine)
     Base.metadata.create_all(engine)
+    _migrar(engine)
     with SessionLocal() as db:
         _semear(db)
     return engine
+
+
+# Colunas adicionadas depois da primeira versão: (tabela, coluna, DDL).
+# create_all cria tabelas novas, mas não altera tabelas que já existem.
+_COLUNAS_NOVAS = [
+    ("lancamentos", "confirmado", "BOOLEAN NOT NULL DEFAULT 0"),
+]
+
+
+def _migrar(engine: Engine) -> None:
+    with engine.begin() as conn:
+        for tabela, coluna, ddl in _COLUNAS_NOVAS:
+            existentes = {linha[1] for linha in conn.exec_driver_sql(f"PRAGMA table_info({tabela})")}
+            if coluna not in existentes:
+                conn.exec_driver_sql(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {ddl}")
 
 
 def get_db():
