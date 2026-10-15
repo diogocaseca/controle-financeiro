@@ -24,7 +24,7 @@
           <td>{{ m.descricao }}{% if m.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}{% if m.valor_expr|eh_expr %}<div class="expr">= {{ m.valor_expr }}</div>{% endif %}</td>
           <td class="num">{{ valor(m.valor, True) }}</td>
           <td class="num esconde-m">{{ valor(acumulado) }}</td>
-          <td class="acoes"><form class="inline" method="post" action="{{ base }}/movimentos/{{ m.id }}/excluir" onsubmit="return confirm('Excluir movimento?')"><button class="link" title="Excluir">✕</button></form></td>
+          <td class="acoes"><a href="{{ base }}/movimentos/{{ m.id }}" title="Editar" class="editar">✎</a> <form class="inline" method="post" action="{{ base }}/movimentos/{{ m.id }}/excluir" onsubmit="return confirm('Excluir movimento?')"><button class="link" title="Excluir">✕</button></form></td>
         </tr>
       {% else %}
         <tr><td colspan="5" class="vazio">Sem movimentos.</td></tr>

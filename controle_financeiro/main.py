@@ -489,6 +489,28 @@ def criar_movimento(
     return ir(request, f"/controles/{cid}")
 
 
+@app.get("/movimentos/{mid}")
+def editar_movimento_form(request: Request, mid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
+    m = db.get(Movimento, mid) or _404()
+    return render(request, "movimento.html", m=m, controles=db.scalars(select(Controle).order_by(Controle.nome)).all())
+
+
+@app.post("/movimentos/{mid}")
+def editar_movimento(
+    request: Request, mid: int, descricao: str = Form(...), valor: str = Form(...),
+    controle_id: int = Form(...), mes: str = Form(""),
+    _u: Usuario = Logado, db: Session = Depends(banco.get_db),
+):
+    m = db.get(Movimento, mid) or _404()
+    volta = m.controle_id
+    m.descricao, m.valor, m.valor_expr = descricao.strip(), avaliar(valor), valor.strip()
+    m.controle_id = controle_id
+    if mes and not m.recorrente_id:
+        m.comp = comp_de(mes)
+    db.commit()
+    return ir(request, f"/controles/{volta}", "Movimento atualizado.")
+
+
 @app.post("/movimentos/{mid}/excluir")
 def excluir_movimento(request: Request, mid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
     m = db.get(Movimento, mid) or _404()

@@ -60,7 +60,8 @@ tbody tr:hover td { background: var(--surface-2); }
 .tag.cinza { background: var(--surface-2); color: var(--muted); }
 .expr { color: var(--muted); font-size: 12px; }
 .acoes { white-space: nowrap; text-align: right; width: 1%; }
-.acoes a, .acoes button { color: var(--muted); }
+.acoes a, .acoes button { color: var(--muted); padding: 2px 4px; }
+.acoes a.editar:hover { color: var(--accent); text-decoration: none; }
 
 form.inline { display: inline; margin: 0; }
 .linha-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }

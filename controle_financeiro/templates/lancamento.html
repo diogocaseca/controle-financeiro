@@ -25,7 +25,11 @@
       </select></div>
       {% endif %}
     </div>
-    <button>Salvar</button>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button>Salvar</button>
+      <button class="perigo" form="excluir" onclick="return confirm('Excluir “{{ l.descricao }}” deste mês?')">Excluir</button>
+    </div>
   </form>
+  <form id="excluir" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir"></form>
 </div>
 {% endblock %}

@@ -37,6 +37,7 @@
   </td>
   <td class="num">{{ valor(ln.efetivo) }}</td>
   <td class="acoes">
+    <a href="{{ base }}/lancamentos/{{ l.id }}" title="Editar" class="editar">✎</a>
     <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?')">
       <button class="link" title="Excluir">✕</button>
     </form>

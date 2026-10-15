@@ -6,7 +6,7 @@
 
 {% macro tabela(lista) %}
 <table>
-  <thead><tr><th>Compra</th><th class="num">Parcela</th><th class="num esconde-m">Total</th><th>Progresso</th><th class="esconde-m">Termina</th></tr></thead>
+  <thead><tr><th>Compra</th><th class="num">Parcela</th><th class="num esconde-m">Total</th><th>Progresso</th><th class="esconde-m">Termina</th><th></th></tr></thead>
   <tbody>
   {% for p in lista %}
     {% set atual = [[hoje - p.primeira + 1, 0]|max, p.parcelas]|min %}
@@ -16,6 +16,7 @@
       <td class="num esconde-m">{{ valor(p.valor_total) }}</td>
       <td><div style="display:flex;gap:8px;align-items:center"><div class="barra" style="flex:1"><i style="width:{{ (atual / p.parcelas * 100)|round }}%"></i></div><span class="sub">{{ atual }}/{{ p.parcelas }}</span></div></td>
       <td class="esconde-m sub">{{ nome_comp(p.primeira + p.parcelas - 1, True) }}</td>
+      <td class="acoes"><a href="{{ base }}/parceladas/{{ p.id }}" title="Editar" class="editar">✎</a></td>
     </tr>
   {% endfor %}
   </tbody>

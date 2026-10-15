@@ -9,12 +9,12 @@
 </head>
 <body>
 {% if not sem_menu %}
-{% set a, m = ano_mes(comp_hoje) %}
+{% set ano_hoje = ano_mes(comp_hoje)[0] %}
 <header class="topo"><div class="in">
   <a class="marca" href="{{ base }}/">💰 Finanças</a>
   <nav>
     <a href="{{ base }}/" class="{{ 'ativo' if aba == 'mes' }}">Mês</a>
-    <a href="{{ base }}/ano/{{ ano_atual or a }}" class="{{ 'ativo' if aba == 'ano' }}">Ano</a>
+    <a href="{{ base }}/ano/{{ ano_atual or ano_hoje }}" class="{{ 'ativo' if aba == 'ano' }}">Ano</a>
     <a href="{{ base }}/recorrentes" class="{{ 'ativo' if aba == 'rec' }}">Fixos</a>
     <a href="{{ base }}/parceladas" class="{{ 'ativo' if aba == 'parc' }}">Parcelados</a>
     <a href="{{ base }}/controles" class="{{ 'ativo' if aba == 'ctl' }}">Dívidas &amp; poupanças</a>

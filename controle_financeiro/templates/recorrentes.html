@@ -6,7 +6,7 @@
 
 <section class="card">
   <table>
-    <thead><tr><th>Descrição</th><th class="esconde-m">Conta</th><th class="num">Valor</th><th class="esconde-m">Controle</th><th class="esconde-m">Período</th></tr></thead>
+    <thead><tr><th>Descrição</th><th class="esconde-m">Conta</th><th class="num">Valor</th><th class="esconde-m">Controle</th><th class="esconde-m">Período</th><th></th></tr></thead>
     <tbody>
     {% for r in ativos %}
       <tr>
@@ -16,13 +16,14 @@
         <td class="num">{{ valor(r.valor) if r.conta_id else '' }}</td>
         <td class="esconde-m">{% if r.controle %}{{ r.controle.nome }} {{ valor(r.controle_valor, True) }}{% endif %}</td>
         <td class="esconde-m sub">{{ nome_comp(r.inicio, True) }} → {{ nome_comp(r.fim, True) if r.fim is not none else '…' }}</td>
+        <td class="acoes"><a href="{{ base }}/recorrentes/{{ r.id }}" title="Editar" class="editar">✎</a></td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="vazio">Nenhum fixo ainda. Cadastre salário e contas abaixo.</td></tr>
+      <tr><td colspan="6" class="vazio">Nenhum fixo ainda. Cadastre salário e contas abaixo.</td></tr>
     {% endfor %}
     {% if ativos %}
       {% set total = ativos|selectattr('conta_id')|map(attribute='valor')|sum %}
-      <tr class="total"><td>Total mensal</td><td class="esconde-m"></td><td class="num">{{ valor(total) }}</td><td colspan="2" class="esconde-m"></td></tr>
+      <tr class="total"><td>Total mensal</td><td class="esconde-m"></td><td class="num">{{ valor(total) }}</td><td colspan="2" class="esconde-m"></td><td></td></tr>
     {% endif %}
     </tbody>
   </table>
@@ -41,7 +42,7 @@
 <details style="margin-top:16px"><summary>Encerrados ({{ encerrados|length }})</summary>
   <section class="card" style="margin-top:8px"><table><tbody>
   {% for r in encerrados %}
-    <tr><td><a href="{{ base }}/recorrentes/{{ r.id }}">{{ r.descricao }}</a></td><td class="num">{{ valor(r.valor) }}</td><td class="sub">{{ nome_comp(r.inicio, True) }} → {{ nome_comp(r.fim, True) }}</td></tr>
+    <tr><td><a href="{{ base }}/recorrentes/{{ r.id }}">{{ r.descricao }}</a></td><td class="num">{{ valor(r.valor) }}</td><td class="sub">{{ nome_comp(r.inicio, True) }} → {{ nome_comp(r.fim, True) }}</td><td class="acoes"><a href="{{ base }}/recorrentes/{{ r.id }}" title="Editar" class="editar">✎</a></td></tr>
   {% endfor %}
   </tbody></table></section>
 </details>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% set aba = 'ctl' %}
+{% block conteudo %}
+<p><a href="{{ base }}/controles/{{ m.controle_id }}">← {{ m.controle.nome }}</a></p>
+<div class="card" style="max-width:560px">
+  <h2>Editar movimento</h2>
+  {% if m.recorrente_id %}<div class="aviso">Gerado pelo fixo <a href="{{ base }}/recorrentes/{{ m.recorrente_id }}">“{{ m.descricao }}”</a>. Mudanças aqui valem só para {{ nome_comp(m.comp) }}.</div>{% endif %}
+  <form method="post" action="{{ base }}/movimentos/{{ m.id }}" class="pilha">
+    <div><label>Descrição</label><input name="descricao" value="{{ m.descricao }}" required></div>
+    <div class="campos">
+      <div><label>Valor</label><input name="valor" value="{{ m.valor_expr or (m.valor|entrada) }}" required autocomplete="off">
+        <div class="ajuda">Aceita contas: <code>156,98/2</code></div></div>
+      <div><label>Mês</label><input type="month" name="mes" value="{{ m.comp|mes_input }}" required {{ 'disabled' if m.recorrente_id }}></div>
+      <div><label>Controle</label><select name="controle_id">
+        {% for c in controles %}<option value="{{ c.id }}" {{ 'selected' if c.id == m.controle_id }}>{{ c.nome }}</option>{% endfor %}
+      </select></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:space-between">
+      <button>Salvar</button>
+      <button class="perigo" form="excluir" onclick="return confirm('Excluir movimento?')">Excluir</button>
+    </div>
+  </form>
+  <form id="excluir" method="post" action="{{ base }}/movimentos/{{ m.id }}/excluir"></form>
+</div>
+{% endblock %}
