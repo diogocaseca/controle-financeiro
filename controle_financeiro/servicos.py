@@ -171,7 +171,9 @@ def _montar(db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[in
         for l in lancs[c.id]:
             if l.eh_verba and l.recorrente_id:
                 gasto = gasto_verba.get(l.recorrente_id, 0)
-                linhas.append(Linha(l, min(0, l.valor - gasto), gasto))
+                # Sem trava em zero: gasto no cartão acima da verba vira entrada
+                # (ex.: reembolso da empresa, ou a Limpeza quando ela gasta mais que o combinado).
+                linhas.append(Linha(l, l.valor - gasto, gasto))
             else:
                 linhas.append(Linha(l, l.valor))
         meus_cartoes = [k for k in cartoes.values() if k.conta.paga_por_id == c.id]

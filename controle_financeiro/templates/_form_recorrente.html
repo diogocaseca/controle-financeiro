@@ -10,7 +10,7 @@
   <div><label>Fim (opcional)</label><input type="month" name="fim" value="{{ r.fim|mes_input if r and r.fim is not none else '' }}"></div>
 </div>
 <p><label style="display:inline-flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="verba" value="1" {{ 'checked' if r and r.verba }}> É uma verba (orçamento)</label>
-  <span class="ajuda">— gastos no cartão marcados com esta verba são descontados dela, como “Limpeza” − Hortifruti na planilha.</span></p>
+  <span class="ajuda">— gastos no cartão marcados com esta verba são descontados dela, como “Limpeza” − Hortifruti na planilha. Com valor 0, vira reembolso: o gasto no cartão volta como entrada (ex.: assinaturas pagas pela empresa).</span></p>
 <fieldset>
   <legend>Dívida/poupança (opcional)</legend>
   <div class="campos">

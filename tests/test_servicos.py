@@ -122,6 +122,31 @@ def test_verba_desconta_gasto_no_cartao(db):
     assert rc.saldo == -60000
 
 
+def test_verba_zero_vira_reembolso(db):
+    nuconta, nubank = contas(db)
+    dal = fixo(db, nuconta, "DAL Solutions", "0", verba=True)
+    servicos.garantir_mes(db, JAN)
+    db.add(Lancamento(conta_id=nubank.id, comp=JAN, descricao="Assinatura", valor=-91737, verba_id=dal.id))
+    db.commit()
+
+    rc = servicos.resumo_mes(db, JAN).contas[0]
+    linha = next(l for l in rc.linhas if l.lancamento.eh_verba)
+    assert linha.efetivo == 91737  # a empresa devolve
+    assert rc.cartoes[0].total == -91737
+    assert rc.saldo == 0  # fatura e reembolso se anulam
+
+
+def test_verba_estourada_vira_entrada(db):
+    nuconta, nubank = contas(db)
+    limpeza = fixo(db, nuconta, "Limpeza", "-600", verba=True)
+    servicos.garantir_mes(db, JAN)
+    db.add(Lancamento(conta_id=nubank.id, comp=JAN, descricao="Mercado", valor=-70000, verba_id=limpeza.id))
+    db.commit()
+
+    linha = next(l for l in servicos.resumo_mes(db, JAN).contas[0].linhas if l.lancamento.eh_verba)
+    assert linha.efetivo == 10000
+
+
 def test_controle_acumula(db):
     nuconta, _ = contas(db)
     fab = Controle(nome="Fabiane")

@@ -38,7 +38,7 @@
     {% if l.eh_verba %}<span class="tag">verba</span>{% elif l.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}
     {% if l.verba %}<span class="tag cinza">{{ l.verba.descricao }}</span>{% endif %}
     {% if l.eh_verba and ln.gasto_cartao %}
-      <div class="expr">verba {{ l.valor|brl }} · já gasto no cartão {{ ln.gasto_cartao|brl }}</div>
+      <div class="expr">verba {{ l.valor|brl }} · já gasto no cartão {{ ln.gasto_cartao|brl }}{% if ln.efetivo > 0 %} · a receber {{ ln.efetivo|brl }}{% endif %}</div>
     {% elif l.valor_expr|eh_expr %}
       <div class="expr">= {{ l.valor_expr }}</div>
     {% endif %}
