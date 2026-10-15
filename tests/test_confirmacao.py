@@ -93,3 +93,9 @@ def test_migra_banco_antigo(tmp_path):
     with banco.SessionLocal() as db:
         l = db.scalar(select(Lancamento))
         assert l.descricao == "Antigo" and l.confirmado is False
+
+
+def test_marcar_pelo_ingress(cliente):
+    cliente.post("/lancamentos", data={"comp": OUT, "conta_id": 1, "descricao": "Light", "valor": "-200"})
+    r = cliente.post("/lancamentos/1/confirmar", headers={"X-Ingress-Path": "/api/hassio_ingress/abc"})
+    assert r.status_code == 200 and "Tudo ✓" in r.text

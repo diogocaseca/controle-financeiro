@@ -21,6 +21,7 @@ def test_login_dispensado_pelo_ingress(cliente, monkeypatch):
     assert r.status_code == 200
     assert "Sair" not in r.text
     assert 'href="/api/hassio_ingress/abc/recorrentes"' in r.text
+    assert 'href="/api/hassio_ingress/abc/static/style.css?v=' in r.text
 
 
 def test_sem_ingress_continua_exigindo_login(cliente, monkeypatch):

@@ -1,3 +1,4 @@
+import hashlib
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -61,6 +62,8 @@ templates.env.filters["brl"] = formatar
 templates.env.filters["entrada"] = para_entrada
 templates.env.filters["eh_expr"] = eh_expressao
 templates.env.globals.update(nome_comp=nome_competencia, MESES=MESES, ano_mes=ano_mes)
+# Muda o endereço do CSS sempre que o arquivo muda, para o navegador não usar a versão em cache.
+templates.env.globals["css_v"] = hashlib.sha256((AQUI / "static" / "style.css").read_bytes()).hexdigest()[:10]
 
 
 def base(request: Request) -> str:
