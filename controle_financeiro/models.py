@@ -30,6 +30,8 @@ class Conta(Base):
     paga_por_id: Mapped[int | None] = mapped_column(ForeignKey("contas.id", ondelete="SET NULL"))
     ordem: Mapped[int] = mapped_column(Integer, default=0)
     ativa: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Mostra a marcação ✓ de confirmado nos lançamentos desta conta.
+    confirmacao: Mapped[bool] = mapped_column(Boolean, default=True)
 
     paga_por: Mapped["Conta | None"] = relationship(remote_side="Conta.id")
 

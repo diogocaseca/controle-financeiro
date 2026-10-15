@@ -557,11 +557,12 @@ def listar_contas(request: Request, _u: Usuario = Logado, db: Session = Depends(
 @app.post("/contas")
 def salvar_conta(
     request: Request, id: str = Form(""), nome: str = Form(...), tipo: str = Form("corrente"),
-    paga_por_id: str = Form(""), ordem: int = Form(0), ativa: str = Form(""),
+    paga_por_id: str = Form(""), ordem: int = Form(0), ativa: str = Form(""), confirmacao: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     c = db.get(Conta, int(id)) if id else Conta()
     c.nome, c.tipo, c.ordem = nome.strip(), tipo, ordem
+    c.confirmacao = bool(confirmacao)
     c.paga_por_id = int(paga_por_id) if paga_por_id and tipo == "cartao" else None
     c.ativa = bool(ativa) if id else True
     db.add(c)

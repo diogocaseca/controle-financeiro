@@ -177,8 +177,10 @@ def _montar(db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[in
         meus_cartoes = [k for k in cartoes.values() if k.conta.paga_por_id == c.id]
         anterior = saldo_anterior.get(c.id, 0)
         valores = [ln.efetivo for ln in linhas] + [k.total for k in meus_cartoes]
-        abertos = [ln.efetivo for ln in linhas if not ln.lancamento.confirmado and ln.efetivo] + [
-            k.total for k in meus_cartoes if not k.confirmada and k.total]
+        abertos = []
+        if c.confirmacao:
+            abertos = [ln.efetivo for ln in linhas if not ln.lancamento.confirmado and ln.efetivo] + [
+                k.total for k in meus_cartoes if not k.confirmada and k.total]
         resumos.append(ResumoConta(
             conta=c, saldo_anterior=anterior, linhas=linhas, cartoes=meus_cartoes,
             saldo=anterior + sum(valores),

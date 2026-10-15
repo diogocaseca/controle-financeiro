@@ -21,10 +21,12 @@
 </form>
 {% endmacro %}
 
-{% macro botao_ok(acao, ok, nome) %}
+{% macro botao_ok(acao, ok, nome, ativo=True) %}
+{% if ativo %}
 <form class="inline confirmar" method="post" action="{{ acao }}">
   <button class="ok-btn {{ 'on' if ok }}" title="{{ 'Desmarcar' if ok else 'Marcar como confirmado' }}: {{ nome }}" aria-pressed="{{ 'true' if ok else 'false' }}">✓</button>
 </form>
+{% endif %}
 {% endmacro %}
 
 {% macro linha(ln) %}
@@ -41,9 +43,10 @@
       <div class="expr">= {{ l.valor_expr }}</div>
     {% endif %}
   </td>
-  <td class="num"><span class="valor-ok {{ 'on' if l.confirmado }}">{{ valor(ln.efetivo) }}</span></td>
+  {% set usa_ok = l.conta.confirmacao %}
+  <td class="num"><span class="valor-ok {{ 'on' if usa_ok and l.confirmado }}">{{ valor(ln.efetivo) }}</span></td>
   <td class="acoes">
-    {{ botao_ok(base ~ '/lancamentos/' ~ l.id ~ '/confirmar', l.confirmado, l.descricao) }}
+    {{ botao_ok(base ~ '/lancamentos/' ~ l.id ~ '/confirmar', l.confirmado, l.descricao, usa_ok) }}
     <a href="{{ base }}/lancamentos/{{ l.id }}" title="Editar" class="editar">✎</a>
     <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?')">
       <button class="link" title="Excluir">✕</button>
@@ -70,10 +73,12 @@
   <div class="kpi"><div class="r">Saídas</div><div class="v">{{ valor(rc.saidas) }}</div></div>
   {% for k in rc.cartoes %}<div class="kpi"><div class="r">Fatura {{ k.conta.nome }}</div><div class="v">{{ valor(k.total) }}</div></div>{% endfor %}
   <div class="kpi"><div class="r">Saldo {{ rc.conta.nome }}</div><div class="v">{{ valor(rc.saldo) }}</div></div>
+  {% if rc.conta.confirmacao %}
   <div class="kpi"><div class="r">A confirmar</div>
     {% if rc.pendentes %}<div class="v">{{ valor(rc.valor_pendente) }}</div><div class="sub">{{ rc.pendentes }} {{ 'item' if rc.pendentes == 1 else 'itens' }} sem ✓</div>
     {% else %}<div class="v pos">Tudo ✓</div>{% endif %}
   </div>
+  {% endif %}
 </div>
 
 <div class="grade">
@@ -86,8 +91,8 @@
         {% for ln in rc.linhas %}{{ linha(ln) }}{% endfor %}
         {% for k in rc.cartoes %}
         <tr><td>{{ k.conta.nome }} <span class="tag cinza">fatura</span></td>
-          <td class="num"><span class="valor-ok {{ 'on' if k.confirmada }}">{{ valor(k.total) }}</span></td>
-          <td class="acoes">{{ botao_ok(base ~ '/faturas/' ~ k.conta.id ~ '/' ~ comp ~ '/confirmar', k.confirmada, 'fatura ' ~ k.conta.nome) }}</td></tr>
+          <td class="num"><span class="valor-ok {{ 'on' if rc.conta.confirmacao and k.confirmada }}">{{ valor(k.total) }}</span></td>
+          <td class="acoes">{{ botao_ok(base ~ '/faturas/' ~ k.conta.id ~ '/' ~ comp ~ '/confirmar', k.confirmada, 'fatura ' ~ k.conta.nome, rc.conta.confirmacao) }}</td></tr>
         {% endfor %}
         <tr class="total"><td>Saldo</td><td class="num">{{ valor(rc.saldo) }}</td><td></td></tr>
       </tbody>
@@ -103,8 +108,8 @@
       <thead><tr><th>Débitos</th><th class="num">Valor R$</th><th></th></tr></thead>
       <tbody>
         {% for ln in k.linhas %}{{ linha(ln) }}{% else %}<tr><td colspan="3" class="vazio">Nenhuma compra neste mês.</td></tr>{% endfor %}
-        <tr class="total"><td>Fatura do mês</td><td class="num"><span class="valor-ok {{ 'on' if k.confirmada }}">{{ valor(k.total) }}</span></td>
-          <td class="acoes">{{ botao_ok(base ~ '/faturas/' ~ k.conta.id ~ '/' ~ comp ~ '/confirmar', k.confirmada, 'fatura ' ~ k.conta.nome) }}</td></tr>
+        <tr class="total"><td>Fatura do mês</td><td class="num"><span class="valor-ok {{ 'on' if k.conta.confirmacao and k.confirmada }}">{{ valor(k.total) }}</span></td>
+          <td class="acoes">{{ botao_ok(base ~ '/faturas/' ~ k.conta.id ~ '/' ~ comp ~ '/confirmar', k.confirmada, 'fatura ' ~ k.conta.nome, k.conta.confirmacao) }}</td></tr>
       </tbody>
     </table>
     {{ form_novo(k.conta, cartao=True) }}

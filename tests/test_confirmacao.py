@@ -99,3 +99,34 @@ def test_marcar_pelo_ingress(cliente):
     cliente.post("/lancamentos", data={"comp": OUT, "conta_id": 1, "descricao": "Light", "valor": "-200"})
     r = cliente.post("/lancamentos/1/confirmar", headers={"X-Ingress-Path": "/api/hassio_ingress/abc"})
     assert r.status_code == 200 and "Tudo ✓" in r.text
+
+
+def test_desligar_marcacao_na_conta(cliente):
+    cliente.post("/lancamentos", data={"comp": OUT, "conta_id": 1, "descricao": "Light", "valor": "-200"})
+    cliente.post("/lancamentos", data={"comp": OUT, "conta_id": 2, "descricao": "Compra", "valor": "-50"})
+    r = cliente.get("/mes/2026/10")
+    assert "Marcar como confirmado: Compra" in r.text
+    assert "2 itens sem ✓" in r.text  # Light + linha da fatura
+
+    # Cartão sem marcação: some o ✓ das compras e do total, mas a linha da fatura na Nuconta continua
+    cliente.post("/contas", data={"id": 2, "nome": "Nubank", "tipo": "cartao", "paga_por_id": 1, "ordem": 2, "ativa": "1"})
+    r = cliente.get("/mes/2026/10")
+    assert "Marcar como confirmado: Compra" not in r.text
+    assert r.text.count("Marcar como confirmado: fatura Nubank") == 1
+    assert "2 itens sem ✓" in r.text
+
+    # Conta corrente sem marcação: nada para confirmar no mês
+    cliente.post("/contas", data={"id": 1, "nome": "Nuconta", "tipo": "corrente", "ordem": 1, "ativa": "1"})
+    r = cliente.get("/mes/2026/10")
+    assert "Marcar como confirmado" not in r.text
+    assert "A confirmar" not in r.text
+
+    # Religando
+    cliente.post("/contas", data={"id": 1, "nome": "Nuconta", "tipo": "corrente", "ordem": 1, "ativa": "1", "confirmacao": "1"})
+    assert "A confirmar" in cliente.get("/mes/2026/10").text
+
+
+def test_conta_nova_vem_com_marcacao(cliente):
+    cliente.post("/contas", data={"nome": "Itaú", "tipo": "corrente", "ordem": 3, "confirmacao": "1"})
+    r = cliente.get("/contas")
+    assert r.text.count('name="confirmacao" value="1" checked') == 4  # 3 contas + formulário de nova

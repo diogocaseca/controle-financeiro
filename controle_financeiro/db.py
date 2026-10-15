@@ -43,6 +43,7 @@ def iniciar(url: str | None = None) -> Engine:
 # create_all cria tabelas novas, mas não altera tabelas que já existem.
 _COLUNAS_NOVAS = [
     ("lancamentos", "confirmado", "BOOLEAN NOT NULL DEFAULT 0"),
+    ("contas", "confirmacao", "BOOLEAN NOT NULL DEFAULT 1"),
 ]
 
 
