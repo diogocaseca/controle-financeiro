@@ -17,3 +17,7 @@ CARREGAR_APENAS_SALDO_NEGATIVO = os.environ.get("CF_CARREGAR_SALDO_POSITIVO", "0
 # direto pela porta continua exigindo login.
 LOGIN_VIA_INGRESS = os.environ.get("CF_LOGIN_VIA_INGRESS", "1") != "0"
 INGRESS_PROXY_IP = os.environ.get("CF_INGRESS_PROXY_IP", "172.30.32.2")
+
+# Backups automáticos diários mantidos (os manuais nunca são apagados sozinhos).
+BACKUPS_MANTER = int(os.environ.get("CF_BACKUPS_MANTER", "30"))
+BACKUP_AUTOMATICO = os.environ.get("CF_BACKUP_AUTOMATICO", "1") != "0"

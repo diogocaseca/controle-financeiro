@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% set aba = 'backups' %}
+{% block conteudo %}
+<div class="cabecalho">
+  <div><h1>Backups</h1>
+    <div class="sub">
+      {% if automatico %}Um backup automático é feito por dia; ficam os {{ manter }} mais recentes.{% else %}Backup automático desligado.{% endif %}
+      Backups manuais nunca são apagados sozinhos.
+    </div></div>
+  <form method="post" action="{{ base }}/backups"><button>Fazer backup agora</button></form>
+</div>
+
+<section class="card">
+  <table>
+    <thead><tr><th>Data</th><th>Tipo</th><th class="num esconde-m">Tamanho</th><th></th></tr></thead>
+    <tbody>
+    {% for b in backups %}
+      <tr>
+        <td>{{ b.quando.strftime('%d/%m/%Y') }} <span class="sub">{{ b.quando.strftime('%H:%M:%S') }}</span></td>
+        <td><span class="tag {{ '' if b.tipo == 'manual' else 'cinza' }}">{{ b.tipo_nome }}</span></td>
+        <td class="num esconde-m sub">{{ '%.0f'|format(b.tamanho / 1024) }} KB</td>
+        <td style="text-align:right;white-space:nowrap">
+          <a class="botao sec" href="{{ base }}/backups/{{ b.nome }}" download>Baixar</a>
+          <form class="inline" method="post" action="{{ base }}/backups/{{ b.nome }}/restaurar"
+                onsubmit="return confirm('Restaurar o backup de {{ b.quando.strftime('%d/%m/%Y %H:%M') }}?\n\nTudo o que foi lançado depois dele será substituído. O estado atual será guardado antes como “Antes de restaurar”.')">
+            <button class="perigo">Restaurar</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="vazio">Nenhum backup ainda.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+<p class="ajuda">Antes de restaurar, o sistema guarda uma cópia do estado atual (“Antes de restaurar”), então dá para desfazer restaurando essa cópia.
+  O arquivo baixado é o banco SQLite completo.</p>
+{% endblock %}

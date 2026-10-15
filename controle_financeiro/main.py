@@ -1,18 +1,20 @@
+import asyncio
 import hashlib
+import logging
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from . import config, db as banco, servicos
+from . import backup, config, db as banco, servicos
 from .dinheiro import (
     MESES, ExpressaoInvalida, ano_mes, avaliar, competencia, eh_expressao, formatar, nome_competencia,
     para_entrada,
@@ -28,7 +30,25 @@ AQUI = Path(__file__).parent
 async def lifespan(_app):
     if banco.engine is None:
         banco.iniciar()
+    tarefa = asyncio.create_task(_backup_diario()) if config.BACKUP_AUTOMATICO else None
     yield
+    if tarefa:
+        tarefa.cancel()
+
+
+log = logging.getLogger("uvicorn.error")  # aparece no log do servidor (e do app no HA)
+
+
+async def _backup_diario():
+    """Confere de hora em hora se já existe o backup automático do dia."""
+    while True:
+        try:
+            novo = await asyncio.to_thread(backup.diario)
+            if novo:
+                log.info("Backup automático criado: %s", novo.nome)
+        except Exception:
+            log.exception("Falha no backup automático")
+        await asyncio.sleep(3600)
 
 
 class IngressMiddleware:
@@ -599,6 +619,40 @@ def salvar_conta(
     db.add(c)
     db.commit()
     return ir(request, "/contas", "Conta salva.")
+
+
+# ----------------------------------------------------------------- backups ---
+
+@app.exception_handler(backup.BackupInvalido)
+async def _backup_invalido(request: Request, exc: backup.BackupInvalido):
+    return ir(request, "/backups", str(exc), erro=True)
+
+
+@app.get("/backups")
+def listar_backups(request: Request, _u: Usuario = Logado):
+    return render(request, "backups.html", backups=backup.listar(), manter=config.BACKUPS_MANTER,
+                  automatico=config.BACKUP_AUTOMATICO, tipos=backup.TIPOS)
+
+
+@app.post("/backups")
+def criar_backup(request: Request, _u: Usuario = Logado):
+    b = backup.criar("manual")
+    return ir(request, "/backups", f"Backup criado: {b.quando:%d/%m/%Y %H:%M:%S}.")
+
+
+@app.get("/backups/{nome}")
+def baixar_backup(nome: str, _u: Usuario = Logado):
+    return FileResponse(backup.caminho(nome), filename=nome, media_type="application/vnd.sqlite3")
+
+
+@app.post("/backups/{nome}/restaurar")
+def restaurar_backup(request: Request, nome: str, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
+    db.close()  # libera a conexão antes de substituir o banco
+    restaurado = next((b for b in backup.listar() if b.nome == nome), None)
+    seguranca = backup.restaurar(nome)
+    quando = f"{restaurado.quando:%d/%m/%Y %H:%M}" if restaurado else nome
+    return ir(request, "/backups", f"Backup de {quando} restaurado. O estado anterior foi guardado em "
+                                   f"“{backup.TIPOS['restauracao']}” de {seguranca.quando:%d/%m/%Y %H:%M:%S}.")
 
 
 def run():
