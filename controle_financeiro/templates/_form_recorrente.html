@@ -19,7 +19,7 @@
       {% for c in controles %}<option value="{{ c.id }}" {{ 'selected' if r and c.id == r.controle_id }}>{{ c.nome }}</option>{% endfor %}
     </select></div>
     <div><label>Valor lançado no controle</label><input name="controle_valor" value="{{ (r.controle_expr or (r.controle_valor|entrada)) if r and r.controle_id else '' }}" placeholder="78,49" autocomplete="off">
-      <div class="ajuda">Preenchido com o resultado do valor acima e atualizado sempre que ele muda (ex.: a parte da Fabiane numa conta dividida). Pode editar.</div></div>
+      <div class="ajuda">Preenchido com o resultado do valor acima, com o sinal invertido, e atualizado sempre que ele muda (ex.: a parte da Fabiane numa conta dividida). Pode editar.</div></div>
   </div>
 </fieldset>
 <script>
@@ -76,7 +76,7 @@
   function preencher() {
     if (!controle.value) return;
     const v = avaliar(valor.value);
-    if (v !== null) destino.value = formatar(v);
+    if (v !== null) destino.value = formatar(-v);  // sinal invertido: a sua saída vira a parte do outro
   }
 
   controle.addEventListener("change", () => { if (destino.value === "") preencher(); });
