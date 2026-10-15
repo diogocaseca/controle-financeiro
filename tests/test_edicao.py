@@ -99,3 +99,11 @@ def test_excluir_fixo(cliente):
         assert all(l.verba_id is None and l.verba_valor is None for l in restantes)
         assert db.scalar(select(Parcelada)).verba_id is None
     assert cliente.get("/mes/2026/10").status_code == 200
+
+
+def test_quitadas_com_botao_esconder(cliente):
+    cliente.post("/parceladas", data={"descricao": "Antiga", "conta_id": 2, "valor": "100", "parcelas": 2,
+                                      "mes": "2020-01", "parcela_no_mes": 1})
+    r = cliente.get("/parceladas")
+    assert "Quitadas (1)" in r.text
+    assert 'data-quitadas="esconder"' in r.text and "Mostrar quitadas (1)" in r.text

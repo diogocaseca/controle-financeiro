@@ -37,8 +37,31 @@
 </section>
 
 {% if quitadas %}
-<details style="margin-top:16px"><summary>Quitadas ({{ quitadas|length }})</summary>
-  <section class="card" style="margin-top:8px">{{ tabela(quitadas) }}</section>
-</details>
+<div id="quitadas" style="margin-top:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+    <details style="flex:1"><summary>Quitadas ({{ quitadas|length }})</summary>
+      <section class="card" style="margin-top:8px">{{ tabela(quitadas) }}</section>
+    </details>
+  </div>
+  <button type="button" class="link" data-quitadas="esconder" style="margin-top:6px">Esconder quitadas</button>
+</div>
+<button type="button" class="link" id="mostrar-quitadas" data-quitadas="mostrar" hidden style="margin-top:16px">Mostrar quitadas ({{ quitadas|length }})</button>
+<script>
+(() => {
+  const CHAVE = "cf.esconderQuitadas";
+  const secao = document.getElementById("quitadas"), mostrar = document.getElementById("mostrar-quitadas");
+  const aplicar = (esconder) => { secao.hidden = esconder; mostrar.hidden = !esconder; };
+  let esconder = false;
+  try { esconder = localStorage.getItem(CHAVE) === "1"; } catch {}
+  aplicar(esconder);
+  document.addEventListener("click", (ev) => {
+    const acao = ev.target.closest("[data-quitadas]")?.dataset.quitadas;
+    if (!acao) return;
+    esconder = acao === "esconder";
+    aplicar(esconder);
+    try { localStorage.setItem(CHAVE, esconder ? "1" : "0"); } catch {}
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

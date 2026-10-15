@@ -99,6 +99,8 @@ button, .botao {
 button.sec, .botao.sec { background: transparent; color: var(--text); border-color: var(--border); }
 button.link { background: none; border: none; padding: 0; color: var(--muted); font-weight: 400; }
 button.link:hover { color: var(--neg); }
+button.link[data-quitadas]:hover { color: var(--accent); }
+[hidden] { display: none !important; }
 button.perigo { background: transparent; color: var(--neg); border-color: var(--neg); }
 
 .aviso { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; background: var(--accent-soft); }
