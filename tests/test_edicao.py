@@ -116,3 +116,26 @@ def test_encerrados_com_botao_esconder(cliente):
     assert "Encerrados (1)" in r.text
     assert "Esconder encerrados" in r.text and "Mostrar encerrados (1)" in r.text
     assert 'data-chave="cf.esconder.encerrados"' in r.text
+
+
+def test_valor_da_parcela_nao_muda_pelo_mes(cliente):
+    cliente.get("/mes/2026/10")
+    cliente.post("/parceladas", data={"descricao": "TV", "conta_id": 2, "valor": "300", "parcelas": 3,
+                                      "mes": "2026-10", "parcela_no_mes": 1})
+    with banco.SessionLocal() as db:
+        lid = db.scalar(select(Lancamento.id).where(Lancamento.parcela == 2))
+    r = cliente.get(f"/lancamentos/{lid}")
+    assert 'name="valor" value="-100,00" readonly' in r.text and "edite a compra" in r.text
+
+    cliente.post(f"/lancamentos/{lid}", data={"descricao": "TV nova", "valor": "-1", "conta_id": 2})
+    with banco.SessionLocal() as db:
+        l = db.get(Lancamento, lid)
+        assert (l.descricao, l.valor) == ("TV nova", -10000)
+
+    # lançamento comum continua editável
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 1, "descricao": "Avulso", "valor": "-5"})
+    with banco.SessionLocal() as db:
+        aid = db.scalar(select(Lancamento.id).where(Lancamento.descricao == "Avulso"))
+    cliente.post(f"/lancamentos/{aid}", data={"descricao": "Avulso", "valor": "-7", "conta_id": 1})
+    with banco.SessionLocal() as db:
+        assert db.get(Lancamento, aid).valor == -700

@@ -279,7 +279,9 @@ def editar_lancamento(
     novo_comp = comp_de(mes) if mes and not l.recorrente_id and not l.parcelada_id else l.comp
     servicos.exigir_destravada(db, l.conta_id, l.comp)
     servicos.exigir_destravada(db, conta_id, novo_comp)
-    l.descricao, l.valor, l.valor_expr = descricao.strip(), avaliar(valor), valor.strip()
+    l.descricao = descricao.strip()
+    if not l.parcelada_id:  # parcela: o valor só muda pela compra (todas as parcelas juntas)
+        l.valor, l.valor_expr = avaliar(valor), valor.strip()
     l.conta_id = conta_id
     l.verba_id = int(verba_id) if verba_id else None
     l.verba_valor = avaliar(verba_valor) if l.verba_id and verba_valor.strip() else None
