@@ -16,7 +16,7 @@
   <table><tbody>
   {% for l in p.lancamentos|sort(attribute='comp') %}
     {% set a, m = ano_mes(l.comp) %}
-    <tr><td><a href="{{ base }}/mes/{{ a }}/{{ m }}">{{ nome_comp(l.comp) }}</a></td><td>{{ l.parcela }}/{{ p.parcelas }}</td><td class="num">{{ valor(l.valor) }}</td><td class="acoes"><a href="{{ base }}/lancamentos/{{ l.id }}" title="Editar esta parcela" class="editar">✎</a></td></tr>
+    <tr><td><a href="{{ base }}/mes/{{ a }}/{{ m }}">{{ nome_comp(l.comp) }}</a></td><td>{{ l.parcela }}/{{ p.parcelas }}</td><td class="num">{{ valor(l.valor) }}</td></tr>
   {% endfor %}
   </tbody></table>
   <form method="post" action="{{ base }}/parceladas/{{ p.id }}/excluir" onsubmit="return confirm('Excluir a compra e todas as parcelas?')" style="margin-top:12px">

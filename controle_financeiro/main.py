@@ -261,6 +261,8 @@ def criar_lancamento(
 @app.get("/lancamentos/{lid}")
 def editar_lancamento_form(request: Request, lid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
     l = db.get(Lancamento, lid) or _404()
+    if l.parcelada_id:  # parcelas só se alteram pela compra
+        return ir(request, f"/parceladas/{l.parcelada_id}")
     return render(
         request, "lancamento.html", l=l, verbas=servicos.verbas_do_mes(db, l.comp),
         travado=servicos.esta_travada(db, l.conta_id, l.comp),
@@ -275,13 +277,12 @@ def editar_lancamento(
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     l = db.get(Lancamento, lid) or _404()
+    _recusar_parcela(l)
     volta = l.comp
-    novo_comp = comp_de(mes) if mes and not l.recorrente_id and not l.parcelada_id else l.comp
+    novo_comp = comp_de(mes) if mes and not l.recorrente_id else l.comp
     servicos.exigir_destravada(db, l.conta_id, l.comp)
     servicos.exigir_destravada(db, conta_id, novo_comp)
-    l.descricao = descricao.strip()
-    if not l.parcelada_id:  # parcela: o valor só muda pela compra (todas as parcelas juntas)
-        l.valor, l.valor_expr = avaliar(valor), valor.strip()
+    l.descricao, l.valor, l.valor_expr = descricao.strip(), avaliar(valor), valor.strip()
     l.conta_id = conta_id
     l.verba_id = int(verba_id) if verba_id else None
     l.verba_valor = avaliar(verba_valor) if l.verba_id and verba_valor.strip() else None
@@ -295,6 +296,7 @@ def editar_lancamento(
 @app.post("/lancamentos/{lid}/excluir")
 def excluir_lancamento(request: Request, lid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
     l = db.get(Lancamento, lid) or _404()
+    _recusar_parcela(l)
     comp = l.comp
     servicos.exigir_destravada(db, l.conta_id, comp)
     db.delete(l)
@@ -336,6 +338,11 @@ def alternar_trava(
     else:
         msg = f"Fatura de {nome_competencia(comp)} do {conta.nome} destravada até o fim do dia de hoje."
     return _volta_mes(request, comp, msg)
+
+
+def _recusar_parcela(l: Lancamento) -> None:
+    if l.parcelada_id:
+        raise ExpressaoInvalida("parcelas são alteradas pela compra, na tela Parcelados")
 
 
 def _404():

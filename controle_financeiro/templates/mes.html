@@ -48,7 +48,8 @@
 {% set l = ln.lancamento %}
 <tr>
   <td>
-    {% if travado %}{{ l.descricao }}{% else %}<a href="{{ base }}/lancamentos/{{ l.id }}" style="color:inherit">{{ l.descricao }}</a>{% endif %}
+    {% if l.parcelada_id %}<a href="{{ base }}/parceladas/{{ l.parcelada_id }}" style="color:inherit" title="Abrir a compra em Parcelados">{{ l.descricao }}</a>
+    {% elif travado %}{{ l.descricao }}{% else %}<a href="{{ base }}/lancamentos/{{ l.id }}" style="color:inherit">{{ l.descricao }}</a>{% endif %}
     {% if l.parcela %}<span class="tag">{{ l.parcela }}/{{ l.parcelada.parcelas }}</span>{% endif %}
     {% if l.eh_verba %}<span class="tag">verba</span>{% elif l.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}
     {% if l.verba %}<span class="tag cinza">{{ l.verba.descricao }}</span>{% endif %}
@@ -63,7 +64,7 @@
   <td class="num"><span class="valor-ok {{ 'on' if usa_ok and l.confirmado }}">{{ valor(ln.efetivo) }}</span></td>
   <td class="acoes">
     {{ botao_ok(base ~ '/lancamentos/' ~ l.id ~ '/confirmar', l.confirmado, l.descricao, usa_ok) }}
-    {% if not travado %}
+    {% if not travado and not l.parcelada_id %}
     <a href="{{ base }}/lancamentos/{{ l.id }}" title="Editar" class="editar">✎</a>
     <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?')">
       <button class="link" title="Excluir">✕</button>

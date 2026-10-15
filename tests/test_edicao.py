@@ -61,11 +61,16 @@ def test_parcelada_com_verba_pela_tela(cliente):
     r = cliente.get("/mes/2026/10")
     assert "-404,87" in r.text  # -600 + 195,13
 
-    # Ajuste numa parcela isolada pela edição do lançamento
+    # Parcela isolada não se edita mais pelo mês: só pela compra
     with banco.SessionLocal() as db:
         lid = db.scalar(select(Lancamento.id).where(Lancamento.parcela == 1))
-    cliente.post(f"/lancamentos/{lid}", data={
+    r = cliente.post(f"/lancamentos/{lid}", data={
         "descricao": "Lava louça", "valor": "-195,13", "conta_id": 2, "verba_id": "1", "verba_valor": "100",
+    }, headers={"referer": f"http://testserver/lancamentos/{lid}"}, follow_redirects=False)
+    assert "erro=" in r.headers["location"]
+    cliente.post("/parceladas/1", data={
+        "descricao": "Lava louça", "conta_id": 2, "valor": "1951,30", "tipo_valor": "total", "parcelas": 10,
+        "mes": "2026-10", "parcela_no_mes": 1, "verba_id": "1", "verba_valor": "100",
     })
     r = cliente.get("/mes/2026/10")
     assert "-500,00" in r.text and "desconta 100,00 da Limpeza" in r.text
@@ -118,19 +123,29 @@ def test_encerrados_com_botao_esconder(cliente):
     assert 'data-chave="cf.esconder.encerrados"' in r.text
 
 
-def test_valor_da_parcela_nao_muda_pelo_mes(cliente):
+def test_parcela_so_se_altera_pela_compra(cliente):
     cliente.get("/mes/2026/10")
     cliente.post("/parceladas", data={"descricao": "TV", "conta_id": 2, "valor": "300", "parcelas": 3,
                                       "mes": "2026-10", "parcela_no_mes": 1})
     with banco.SessionLocal() as db:
-        lid = db.scalar(select(Lancamento.id).where(Lancamento.parcela == 2))
-    r = cliente.get(f"/lancamentos/{lid}")
-    assert 'name="valor" value="-100,00" readonly' in r.text and "edite a compra" in r.text
+        lid = db.scalar(select(Lancamento.id).where(Lancamento.parcela == 1))
 
-    cliente.post(f"/lancamentos/{lid}", data={"descricao": "TV nova", "valor": "-1", "conta_id": 2})
+    r = cliente.get("/mes/2026/10")
+    assert f'href="/lancamentos/{lid}"' not in r.text  # sem ✎
+    assert f"/lancamentos/{lid}/excluir" not in r.text  # sem ✕
+    assert f"/lancamentos/{lid}/confirmar" in r.text  # ✓ continua
+    assert 'href="/parceladas/1"' in r.text
+    assert "/lancamentos/" not in cliente.get("/parceladas/1").text
+
+    r = cliente.get(f"/lancamentos/{lid}", follow_redirects=False)
+    assert r.headers["location"] == "/parceladas/1"
+    for url, data in [(f"/lancamentos/{lid}", {"descricao": "x", "valor": "-1", "conta_id": 2}),
+                      (f"/lancamentos/{lid}/excluir", {})]:
+        r = cliente.post(url, data=data, headers={"referer": "http://testserver/mes/2026/10"}, follow_redirects=False)
+        assert "erro=" in r.headers["location"]
     with banco.SessionLocal() as db:
         l = db.get(Lancamento, lid)
-        assert (l.descricao, l.valor) == ("TV nova", -10000)
+        assert (l.descricao, l.valor) == ("TV", -10000)
 
     # lançamento comum continua editável
     cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 1, "descricao": "Avulso", "valor": "-5"})
