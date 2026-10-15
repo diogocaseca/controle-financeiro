@@ -59,25 +59,39 @@ def test_restaurar_guarda_estado_atual(cliente):
     assert descricoes() == {"Antes", "Depois"}  # desfez
 
 
-def test_restaurar_backup_de_versao_antiga_migra(cliente, tmp_path):
+def _banco_versao_antiga(arq):
+    """Esquema da 0.1.0: o atual sem as colunas/tabelas acrescentadas depois."""
+    from sqlalchemy import MetaData, Table, create_engine
+
+    from controle_financeiro.models import Base
+
+    novas = {(t, c) for t, c, _ in banco._COLUNAS_NOVAS}
+    md = MetaData()
+    for t in Base.metadata.sorted_tables:
+        if t.name in ("faturas_confirmadas", "configuracoes"):
+            continue
+        Table(t.name, md, *[c._copy() for c in t.columns if (t.name, c.name) not in novas])
+    eng = create_engine(f"sqlite:///{arq}")
+    md.create_all(eng)
+    with eng.begin() as con:
+        con.exec_driver_sql("INSERT INTO usuarios (login, senha_hash, senha_padrao) VALUES ('admin', 'x', 1)")
+        con.exec_driver_sql("INSERT INTO contas (id, nome, tipo, ordem, ativa) VALUES (1, 'Nuconta', 'corrente', 1, 1)")
+        con.exec_driver_sql("INSERT INTO lancamentos (conta_id, comp, descricao, valor, valor_expr, eh_verba, ordem)"
+                            " VALUES (1, 24321, 'Antigo', -100, '', 0, 0)")
+    eng.dispose()
+
+
+def test_restaurar_backup_de_versao_antiga_migra(cliente):
     antigo = backup.pasta() / "financas_20260101-000000_manual.db"
-    con = sqlite3.connect(antigo)
-    con.executescript("""
-        CREATE TABLE usuarios (id INTEGER PRIMARY KEY, login TEXT, senha_hash TEXT, senha_padrao BOOLEAN);
-        CREATE TABLE contas (id INTEGER PRIMARY KEY, nome TEXT, tipo TEXT, paga_por_id INTEGER, ordem INTEGER, ativa BOOLEAN);
-        CREATE TABLE recorrentes (id INTEGER PRIMARY KEY, descricao TEXT);
-        CREATE TABLE lancamentos (id INTEGER PRIMARY KEY, conta_id INTEGER, comp INTEGER, descricao TEXT, valor INTEGER,
-            valor_expr TEXT, recorrente_id INTEGER, parcelada_id INTEGER, parcela INTEGER, verba_id INTEGER,
-            eh_verba BOOLEAN, ordem INTEGER);
-        INSERT INTO contas VALUES (1, 'Nuconta', 'corrente', NULL, 1, 1);
-        INSERT INTO lancamentos (conta_id, comp, descricao, valor) VALUES (1, 24321, 'Antigo', -100);
-    """)
-    con.commit()
-    con.close()
+    _banco_versao_antiga(antigo)
+    colunas = {r[1] for r in sqlite3.connect(antigo).execute("PRAGMA table_info(lancamentos)")}
+    assert "confirmado" not in colunas
 
     cliente.post("/backups/financas_20260101-000000_manual.db/restaurar")
     assert descricoes() == {"Antigo"}
-    assert cliente.get("/mes/2026/10").status_code in (200, 303)
+    assert cliente.get("/mes/2026/10", follow_redirects=False).status_code in (200, 303)
+    with banco.SessionLocal() as db:
+        assert db.scalar(select(Lancamento)).confirmado is False
 
 
 def test_recusa_arquivos_invalidos(cliente):
@@ -123,3 +137,100 @@ def test_quantidade_configuravel_pela_tela(cliente):
 
     r = cliente.post("/backups/configuracao", data={"manter": 0}, follow_redirects=False)
     assert "erro=" in r.headers["location"] and backup.manter() == 2
+
+
+def _backup_de_outra_instalacao(tmp_path, descricao="De outra casa", com_usuario=True):
+    """Gera um banco completo do sistema num arquivo separado, como se baixado de outra instalação."""
+    from controle_financeiro.models import Base, Conta, Usuario
+
+    arq = tmp_path / "outra.db"
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    eng = create_engine(f"sqlite:///{arq}")
+    Base.metadata.create_all(eng)
+    with Session(eng) as s:
+        if com_usuario:
+            s.add(Usuario(login="outro", senha_hash=banco.hash_senha("segredo"), senha_padrao=False))
+        s.add(Conta(id=1, nome="Itaú", tipo="corrente", ordem=1))
+        s.add(Lancamento(conta_id=1, comp=24321, descricao=descricao, valor=-100))
+        s.commit()
+    eng.dispose()
+    return arq
+
+
+def test_importar_arquivo_de_outra_instalacao(cliente, tmp_path):
+    lancar(cliente, "Daqui")
+    arq = _backup_de_outra_instalacao(tmp_path)
+
+    r = cliente.get("/backups")
+    assert 'accept=".db"' in r.text and "Restaurar de um arquivo" in r.text
+
+    with arq.open("rb") as f:
+        r = cliente.post("/backups/importar", files={"arquivo": ("backup-casa.db", f, "application/octet-stream")},
+                         follow_redirects=False)
+    assert "validado%20e%20restaurado" in r.headers["location"]
+    assert descricoes() == {"De outra casa"}
+
+    tipos = [b.tipo for b in backup.listar()]
+    assert "importado" in tipos and "restauracao" in tipos  # fica no histórico e dá para desfazer
+
+    # login passou a ser o da outra instalação
+    cliente.post("/logout")
+    r = cliente.post("/login", data={"login": "outro", "senha": "segredo"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/"
+
+    # desfazer
+    cliente.post("/login", data={"login": "outro", "senha": "segredo"})
+    seguranca = next(b for b in backup.listar() if b.tipo == "restauracao")
+    cliente.post(f"/backups/{seguranca.nome}/restaurar")
+    assert descricoes() == {"Daqui"}
+
+
+@pytest.mark.parametrize("nome,conteudo,erro", [
+    ("planilha.xlsx", b"PK\x03\x04", "selecione%20um%20arquivo"),
+    ("falso.db", b"isso nao e um banco", "n%C3%A3o%20%C3%A9%20um%20backup"),
+    ("vazio.db", b"", "n%C3%A3o%20%C3%A9%20um%20backup"),
+])
+def test_importar_recusa_arquivos_invalidos(cliente, nome, conteudo, erro):
+    lancar(cliente, "Daqui")
+    r = cliente.post("/backups/importar", files={"arquivo": (nome, conteudo)}, follow_redirects=False)
+    assert "erro=" in r.headers["location"] and erro in r.headers["location"]
+    assert descricoes() == {"Daqui"}  # nada mudou
+    assert backup.listar() == []  # nem entrou na lista
+    assert not list(backup.pasta().glob(".envio-*"))  # temporário apagado
+
+
+def test_importar_sqlite_de_outro_programa(cliente, tmp_path):
+    lancar(cliente, "Daqui")
+    arq = tmp_path / "outro_programa.db"
+    con = sqlite3.connect(arq)
+    con.execute("CREATE TABLE fotos (id INTEGER PRIMARY KEY)")
+    con.commit()
+    con.close()
+    r = cliente.post("/backups/importar", files={"arquivo": ("fotos.db", arq.read_bytes())}, follow_redirects=False)
+    assert "n%C3%A3o%20%C3%A9%20um%20backup%20do%20Controle%20Financeiro" in r.headers["location"]
+    assert descricoes() == {"Daqui"}
+
+
+def test_importar_banco_sem_usuarios_recria_admin(cliente, tmp_path):
+    arq = _backup_de_outra_instalacao(tmp_path, com_usuario=False)
+    cliente.post("/backups/importar", files={"arquivo": ("sem-usuario.db", arq.read_bytes())})
+    cliente.post("/logout")
+    r = cliente.post("/login", data={"login": "admin", "senha": "admin"}, follow_redirects=False)
+    assert r.headers["location"] == "/"
+
+
+def test_backups_nao_deixam_arquivos_soltos(cliente, tmp_path):
+    lancar(cliente, "Daqui")
+    cliente.post("/backups")
+    [b] = backup.listar()
+    assert sqlite3.connect(backup.caminho(b.nome)).execute("PRAGMA journal_mode").fetchone()[0] == "delete"
+
+    arq = _backup_de_outra_instalacao(tmp_path)
+    sqlite3.connect(arq).execute("PRAGMA journal_mode=WAL").close()  # como o banco de outra instalação
+    cliente.post("/backups/importar", files={"arquivo": ("outra.db", arq.read_bytes())})
+    cliente.post(f"/backups/{b.nome}/restaurar")
+
+    soltos = [p.name for p in backup.pasta().iterdir() if p.name.endswith(("-wal", "-shm")) or p.name.startswith(".")]
+    assert soltos == []

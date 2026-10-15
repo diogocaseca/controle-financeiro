@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -634,6 +634,17 @@ def listar_backups(request: Request, _u: Usuario = Logado):
     return render(request, "backups.html", backups=bs, manter=backup.manter(),
                   n_auto=sum(b.tipo == "auto" for b in bs), automatico=config.BACKUP_AUTOMATICO,
                   tipos=backup.TIPOS, manter_min=backup.MANTER_MIN, manter_max=backup.MANTER_MAX)
+
+
+@app.post("/backups/importar")
+def importar_backup(
+    request: Request, arquivo: UploadFile = File(...), _u: Usuario = Logado, db: Session = Depends(banco.get_db),
+):
+    importado = backup.importar(arquivo.file, arquivo.filename)
+    db.close()  # libera a conexão antes de substituir o banco
+    seguranca = backup.restaurar(importado.nome)
+    return ir(request, "/backups", f"Arquivo “{arquivo.filename}” validado e restaurado. O estado anterior foi "
+                                   f"guardado em “{backup.TIPOS['restauracao']}” de {seguranca.quando:%d/%m/%Y %H:%M:%S}.")
 
 
 @app.post("/backups/configuracao")

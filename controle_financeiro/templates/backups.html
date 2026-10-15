@@ -7,8 +7,34 @@
       {% if automatico %}Um backup automático é feito por dia.{% else %}Backup automático desligado.{% endif %}
       Backups manuais nunca são apagados sozinhos.
     </div></div>
-  <form method="post" action="{{ base }}/backups"><button>Fazer backup agora</button></form>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <form method="post" action="{{ base }}/backups/importar" enctype="multipart/form-data" id="form-importar">
+      <input type="file" name="arquivo" accept=".db" id="arquivo-backup" hidden>
+      <button type="button" class="sec" id="escolher-backup">Restaurar de um arquivo…</button>
+    </form>
+    <form method="post" action="{{ base }}/backups"><button>Fazer backup agora</button></form>
+  </div>
 </div>
+<script>
+(() => {
+  const input = document.getElementById("arquivo-backup");
+  document.getElementById("escolher-backup").addEventListener("click", () => input.click());
+  input.addEventListener("change", () => {
+    const arq = input.files[0];
+    if (!arq) return;
+    if (!arq.name.toLowerCase().endsWith(".db")) {
+      alert("Selecione um arquivo de backup (.db).");
+      input.value = "";
+      return;
+    }
+    const ok = confirm(`Restaurar o backup “${arq.name}”?\n\nTodos os dados atuais serão substituídos pelos do arquivo, ` +
+      `inclusive usuário e senha (passam a ser os da instalação de onde o backup veio). ` +
+      `O estado atual será guardado antes como “Antes de restaurar”.`);
+    if (ok) document.getElementById("form-importar").submit();
+    else input.value = "";
+  });
+})();
+</script>
 
 <section class="card" style="margin-bottom:16px">
   <form method="post" action="{{ base }}/backups/configuracao" class="linha-form" style="margin:0;align-items:end"
@@ -43,6 +69,7 @@
     </tbody>
   </table>
 </section>
-<p class="ajuda">Antes de restaurar, o sistema guarda uma cópia do estado atual (“Antes de restaurar”), então dá para desfazer restaurando essa cópia.
+<p class="ajuda">“Restaurar de um arquivo…” aceita um backup (.db) baixado desta ou de outra instalação; ele é validado antes e fica na lista como “Importado”.
+  Antes de restaurar, o sistema guarda uma cópia do estado atual (“Antes de restaurar”), então dá para desfazer restaurando essa cópia.
   O arquivo baixado é o banco SQLite completo.</p>
 {% endblock %}

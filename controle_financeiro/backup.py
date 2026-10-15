@@ -1,11 +1,14 @@
 """Backups do banco SQLite: automático diário, manual, download e restauração.
 
 Os arquivos ficam em DATA_DIR/backups com o nome
-financas_AAAAMMDD-HHMMSS_<tipo>.db, onde tipo é "auto", "manual" ou "restauracao"
-(cópia do estado atual feita antes de restaurar outro backup).
+financas_AAAAMMDD-HHMMSS_<tipo>.db, onde tipo é "auto", "manual", "restauracao"
+(cópia do estado atual feita antes de restaurar outro backup) ou "importado"
+(arquivo enviado de outra instalação).
 """
 
 import re
+import secrets
+import shutil
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
@@ -14,8 +17,10 @@ from pathlib import Path
 from . import config, db as banco
 from .models import Base, Configuracao
 
-TIPOS = {"auto": "Automático", "manual": "Manual", "restauracao": "Antes de restaurar"}
-_NOME = re.compile(r"^financas_(\d{8}-\d{6})(?:-\d+)?_(auto|manual|restauracao)\.db$")
+TIPOS = {"auto": "Automático", "manual": "Manual", "restauracao": "Antes de restaurar", "importado": "Importado"}
+_NOME = re.compile(r"^financas_(\d{8}-\d{6})(?:-\d+)?_(auto|manual|restauracao|importado)\.db$")
+EXTENSAO = ".db"
+_CABECALHO_SQLITE = b"SQLite format 3\x00"
 _TABELAS_OBRIGATORIAS = {"usuarios", "contas", "lancamentos", "recorrentes"}
 
 
@@ -33,6 +38,11 @@ class Backup:
     @property
     def tipo_nome(self) -> str:
         return TIPOS[self.tipo]
+
+
+def _abrir_leitura(arq: Path) -> sqlite3.Connection:
+    """Abre um backup só para leitura sem criar arquivos -wal/-shm ao lado dele."""
+    return sqlite3.connect(f"{arq.resolve().as_uri()}?mode=ro&immutable=1", uri=True)
 
 
 def pasta() -> Path:
@@ -61,8 +71,7 @@ def caminho(nome: str) -> Path:
     return arq
 
 
-def criar(tipo: str = "manual") -> Backup:
-    agora = datetime.now()
+def _novo_caminho(tipo: str, agora: datetime) -> Path:
     nome = f"financas_{agora:%Y%m%d-%H%M%S}_{tipo}.db"
     destino = pasta() / nome
     # Mesmo segundo (ex.: backup "antes de restaurar" logo após um manual): evita sobrescrever.
@@ -70,11 +79,19 @@ def criar(tipo: str = "manual") -> Backup:
     while destino.exists():
         n += 1
         destino = pasta() / nome.replace(f"_{tipo}.db", f"-{n}_{tipo}.db")
+    return destino
+
+
+def criar(tipo: str = "manual") -> Backup:
+    agora = datetime.now()
+    destino = _novo_caminho(tipo, agora)
     bruta = banco.engine.raw_connection()
     try:
         alvo = sqlite3.connect(destino)
         with alvo:
             bruta.driver_connection.backup(alvo)
+        # O modo WAL vem junto na cópia; o backup deve ser um arquivo único.
+        alvo.execute("PRAGMA journal_mode=DELETE")
         alvo.close()
     finally:
         bruta.close()
@@ -129,7 +146,7 @@ def limpar() -> int:
 
 def _validar(arq: Path) -> None:
     try:
-        con = sqlite3.connect(f"file:{arq}?mode=ro", uri=True)
+        con = _abrir_leitura(arq)
         try:
             if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise BackupInvalido("o arquivo de backup está corrompido")
@@ -142,12 +159,36 @@ def _validar(arq: Path) -> None:
         raise BackupInvalido("o arquivo não é um backup do Controle Financeiro")
 
 
+def importar(arquivo, nome_original: str) -> Backup:
+    """Guarda um backup enviado (ex.: baixado de outra instalação) como tipo "importado".
+
+    O arquivo é validado antes de entrar na lista; se for inválido, é descartado.
+    """
+    if not (nome_original or "").lower().endswith(EXTENSAO):
+        raise BackupInvalido(f"selecione um arquivo de backup ({EXTENSAO})")
+    temp = pasta() / f".envio-{secrets.token_hex(8)}.tmp"
+    try:
+        with temp.open("wb") as saida:
+            shutil.copyfileobj(arquivo, saida)
+        with temp.open("rb") as f:
+            if f.read(len(_CABECALHO_SQLITE)) != _CABECALHO_SQLITE:
+                raise BackupInvalido("o arquivo não é um backup válido do Controle Financeiro")
+        _validar(temp)
+        agora = datetime.now()
+        destino = _novo_caminho("importado", agora)
+        temp.replace(destino)
+        return Backup(destino.name, agora.replace(microsecond=0), "importado", destino.stat().st_size)
+    finally:
+        for sobra in (temp, temp.with_name(temp.name + "-wal"), temp.with_name(temp.name + "-shm")):
+            sobra.unlink(missing_ok=True)
+
+
 def restaurar(nome: str) -> Backup:
     """Substitui o banco atual pelo backup. Antes, guarda o estado atual."""
     arq = caminho(nome)
     _validar(arq)
     seguranca = criar("restauracao")
-    origem = sqlite3.connect(f"file:{arq}?mode=ro", uri=True)
+    origem = _abrir_leitura(arq)
     bruta = banco.engine.raw_connection()
     try:
         origem.backup(bruta.driver_connection)
@@ -157,4 +198,6 @@ def restaurar(nome: str) -> Backup:
     # Backup de uma versão antiga: cria tabelas/colunas que surgiram depois.
     Base.metadata.create_all(banco.engine)
     banco._migrar(banco.engine)
+    with banco.SessionLocal() as db:
+        banco._semear(db)  # garante ao menos um usuário (admin/admin) e as contas padrão
     return seguranca
