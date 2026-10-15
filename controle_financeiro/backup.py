@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import config, db as banco
-from .models import Base
+from .models import Base, Configuracao
 
 TIPOS = {"auto": "Automático", "manual": "Manual", "restauracao": "Antes de restaurar"}
 _NOME = re.compile(r"^financas_(\d{8}-\d{6})(?:-\d+)?_(auto|manual|restauracao)\.db$")
@@ -91,14 +91,40 @@ def diario() -> Backup | None:
     return novo
 
 
-def limpar() -> None:
+MANTER_MIN, MANTER_MAX = 1, 3650
+
+
+def manter() -> int:
+    """Quantos backups automáticos guardar (tela Backups; padrão CF_BACKUPS_MANTER)."""
+    with banco.SessionLocal() as db:
+        c = db.get(Configuracao, "backups_manter")
+    try:
+        return int(c.valor) if c else config.BACKUPS_MANTER
+    except ValueError:
+        return config.BACKUPS_MANTER
+
+
+def definir_manter(n: int) -> int:
+    """Grava o novo limite e apaga na hora os automáticos excedentes. Devolve quantos apagou."""
+    if not MANTER_MIN <= n <= MANTER_MAX:
+        raise BackupInvalido(f"informe entre {MANTER_MIN} e {MANTER_MAX} backups")
+    with banco.SessionLocal() as db:
+        db.merge(Configuracao(chave="backups_manter", valor=str(n)))
+        db.commit()
+    return limpar()
+
+
+def limpar() -> int:
     """Mantém os N automáticos e os 10 "antes de restaurar" mais recentes; manuais ficam."""
-    limites = {"auto": config.BACKUPS_MANTER, "restauracao": 10}
+    limites = {"auto": manter(), "restauracao": 10}
     por_tipo: dict[str, int] = {}
+    apagados = 0
     for b in listar():
         por_tipo[b.tipo] = por_tipo.get(b.tipo, 0) + 1
         if b.tipo in limites and por_tipo[b.tipo] > limites[b.tipo]:
             (pasta() / b.nome).unlink(missing_ok=True)
+            apagados += 1
+    return apagados
 
 
 def _validar(arq: Path) -> None:

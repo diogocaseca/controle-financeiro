@@ -99,3 +99,27 @@ def test_diario_um_por_dia_e_limpeza(cliente, monkeypatch):
     backup.limpar()
     tipos = [b.tipo for b in backup.listar()]
     assert tipos.count("auto") == 3 and tipos.count("manual") == 1
+
+
+def test_quantidade_configuravel_pela_tela(cliente):
+    assert backup.manter() == config.BACKUPS_MANTER
+    for i in range(5):
+        (backup.pasta() / f"financas_2025010{i + 1}-000000_auto.db").write_bytes(b"")
+    (backup.pasta() / "financas_20240101-000000_manual.db").write_bytes(b"")
+
+    r = cliente.get("/backups")
+    assert 'name="manter"' in r.text and "Hoje há 5 automático(s)" in r.text
+
+    r = cliente.post("/backups/configuracao", data={"manter": 2}, follow_redirects=False)
+    assert "3%20backup" in r.headers["location"]  # apagou os 3 mais antigos
+    assert backup.manter() == 2
+    nomes = [b.nome for b in backup.listar()]
+    assert "financas_20250105-000000_auto.db" in nomes and "financas_20250101-000000_auto.db" not in nomes
+    assert "financas_20240101-000000_manual.db" in nomes
+
+    # o automático diário respeita o novo limite
+    backup.diario()
+    assert sum(b.tipo == "auto" for b in backup.listar()) == 2
+
+    r = cliente.post("/backups/configuracao", data={"manter": 0}, follow_redirects=False)
+    assert "erro=" in r.headers["location"] and backup.manter() == 2

@@ -4,11 +4,21 @@
 <div class="cabecalho">
   <div><h1>Backups</h1>
     <div class="sub">
-      {% if automatico %}Um backup automático é feito por dia; ficam os {{ manter }} mais recentes.{% else %}Backup automático desligado.{% endif %}
+      {% if automatico %}Um backup automático é feito por dia.{% else %}Backup automático desligado.{% endif %}
       Backups manuais nunca são apagados sozinhos.
     </div></div>
   <form method="post" action="{{ base }}/backups"><button>Fazer backup agora</button></form>
 </div>
+
+<section class="card" style="margin-bottom:16px">
+  <form method="post" action="{{ base }}/backups/configuracao" class="linha-form" style="margin:0;align-items:end"
+        onsubmit="const n = +this.manter.value, atuais = {{ n_auto }}; return n >= atuais || confirm(`Com ${n}, ${atuais - n} backup(s) automático(s) mais antigo(s) serão apagados agora. Continuar?`)">
+    <div style="flex:0 1 260px"><label for="manter">Manter os últimos backups automáticos</label>
+      <input id="manter" type="number" name="manter" min="{{ manter_min }}" max="{{ manter_max }}" value="{{ manter }}" required></div>
+    <button style="flex:0 0 auto">Salvar</button>
+    <div class="ajuda" style="flex:1 1 200px;margin-bottom:10px">Hoje há {{ n_auto }} automático(s). Um por dia: {{ manter }} ≈ {{ manter }} dias de histórico.</div>
+  </form>
+</section>
 
 <section class="card">
   <table>

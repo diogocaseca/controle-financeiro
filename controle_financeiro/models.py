@@ -174,6 +174,15 @@ class FaturaConfirmada(Base):
     comp: Mapped[int] = mapped_column(Integer, primary_key=True)
 
 
+class Configuracao(Base):
+    """Preferências ajustáveis pela interface (chave → valor em texto)."""
+
+    __tablename__ = "configuracoes"
+
+    chave: Mapped[str] = mapped_column(String(50), primary_key=True)
+    valor: Mapped[str] = mapped_column(String(255))
+
+
 class MesGerado(Base):
     """Meses em que os recorrentes já foram lançados."""
 

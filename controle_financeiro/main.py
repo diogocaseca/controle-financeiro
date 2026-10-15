@@ -630,8 +630,19 @@ async def _backup_invalido(request: Request, exc: backup.BackupInvalido):
 
 @app.get("/backups")
 def listar_backups(request: Request, _u: Usuario = Logado):
-    return render(request, "backups.html", backups=backup.listar(), manter=config.BACKUPS_MANTER,
-                  automatico=config.BACKUP_AUTOMATICO, tipos=backup.TIPOS)
+    bs = backup.listar()
+    return render(request, "backups.html", backups=bs, manter=backup.manter(),
+                  n_auto=sum(b.tipo == "auto" for b in bs), automatico=config.BACKUP_AUTOMATICO,
+                  tipos=backup.TIPOS, manter_min=backup.MANTER_MIN, manter_max=backup.MANTER_MAX)
+
+
+@app.post("/backups/configuracao")
+def configurar_backups(request: Request, manter: int = Form(...), _u: Usuario = Logado):
+    apagados = backup.definir_manter(manter)
+    msg = f"Serão mantidos os {manter} backups automáticos mais recentes."
+    if apagados:
+        msg += f" {apagados} backup(s) automático(s) mais antigo(s) foram apagados."
+    return ir(request, "/backups", msg)
 
 
 @app.post("/backups")
