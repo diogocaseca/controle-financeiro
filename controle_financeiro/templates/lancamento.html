@@ -7,6 +7,7 @@
   <h2>Editar lançamento</h2>
   {% if l.recorrente_id %}<div class="aviso">Gerado pelo fixo <a href="{{ base }}/recorrentes/{{ l.recorrente_id }}">“{{ l.recorrente.descricao }}”</a>. Mudanças aqui valem só para {{ nome_comp(l.comp) }}.</div>{% endif %}
   {% if l.parcelada_id %}<div class="aviso">Parcela {{ l.parcela }}/{{ l.parcelada.parcelas }} de <a href="{{ base }}/parceladas/{{ l.parcelada_id }}">“{{ l.parcelada.descricao }}”</a>. Mudanças aqui valem só para esta parcela.</div>{% endif %}
+  {% if travado %}<div class="aviso alerta">🔒 A fatura de {{ nome_comp(l.comp) }} do {{ l.conta.nome }} está travada. Para corrigir, volte ao mês e clique em “Destravar para corrigir”.</div>{% endif %}
   <form method="post" action="{{ base }}/lancamentos/{{ l.id }}" class="pilha">
     <div><label>Descrição</label><input name="descricao" value="{{ l.descricao }}" required></div>
     <div class="campos">
@@ -45,8 +46,8 @@
     </script>
     {% endif %}
     <div style="display:flex;gap:8px;justify-content:space-between">
-      <button>Salvar</button>
-      <button class="perigo" form="excluir" onclick="return confirm('Excluir “{{ l.descricao }}” deste mês?')">Excluir</button>
+      <button {{ 'disabled' if travado }}>Salvar</button>
+      <button class="perigo" form="excluir" {{ 'disabled' if travado }} onclick="return confirm('Excluir “{{ l.descricao }}” deste mês?')">Excluir</button>
     </div>
   </form>
   <form id="excluir" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir"></form>

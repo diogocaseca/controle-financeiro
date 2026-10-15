@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from datetime import date
+
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Todos os valores são em centavos; negativo = saída, positivo = entrada
@@ -32,6 +34,8 @@ class Conta(Base):
     ativa: Mapped[bool] = mapped_column(Boolean, default=True)
     # Mostra a marcação ✓ de confirmado nos lançamentos desta conta.
     confirmacao: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Cartão: dia em que a fatura do mês fecha; a partir dele o mês trava sozinho.
+    dia_fechamento: Mapped[int | None] = mapped_column(Integer)
 
     paga_por: Mapped["Conta | None"] = relationship(remote_side="Conta.id")
 
@@ -172,6 +176,18 @@ class FaturaConfirmada(Base):
 
     conta_id: Mapped[int] = mapped_column(ForeignKey("contas.id", ondelete="CASCADE"), primary_key=True)
     comp: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+
+class TravaFatura(Base):
+    """Trava manual (travada=True) ou destravamento temporário (travada=False, até `ate`)
+    da fatura de um cartão num mês. Sem registro, vale a trava automática pelo fechamento."""
+
+    __tablename__ = "travas_fatura"
+
+    conta_id: Mapped[int] = mapped_column(ForeignKey("contas.id", ondelete="CASCADE"), primary_key=True)
+    comp: Mapped[int] = mapped_column(Integer, primary_key=True)
+    travada: Mapped[bool] = mapped_column(Boolean)
+    ate: Mapped[date | None] = mapped_column(Date)
 
 
 class Configuracao(Base):

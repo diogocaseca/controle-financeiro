@@ -48,6 +48,7 @@ _COLUNAS_NOVAS = [
     ("parceladas", "verba_id", "INTEGER REFERENCES recorrentes(id) ON DELETE SET NULL"),
     ("parceladas", "verba_valor", "INTEGER"),
     ("parceladas", "verba_expr", "VARCHAR(255) NOT NULL DEFAULT ''"),
+    ("contas", "dia_fechamento", "INTEGER"),
 ]
 
 

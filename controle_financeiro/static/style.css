@@ -68,6 +68,10 @@ tbody tr:hover td { background: var(--surface-2); }
 .ok-btn:hover { border-color: var(--ok); color: var(--ok); }
 .ok-btn.on { background: var(--ok); border-color: var(--ok); color: #fff; }
 .valor-ok { padding: 2px 6px; border-radius: 6px; }
+.trava { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--muted); background: var(--surface-2); border-radius: 8px; padding: 6px 10px; margin: -4px 0 8px; }
+.trava.fechada { color: var(--warn); background: var(--warn-bg); }
+.trava button.link:hover { color: var(--accent); }
 .valor-ok.on { background: var(--ok-bg); }
 .acoes a.editar:hover { color: var(--accent); text-decoration: none; }
 
@@ -102,6 +106,7 @@ button.link:hover { color: var(--neg); }
 .secao-ocultavel button.link:hover { color: var(--accent); }
 [hidden] { display: none !important; }
 button.perigo { background: transparent; color: var(--neg); border-color: var(--neg); }
+button:disabled { opacity: .45; cursor: not-allowed; }
 
 .aviso { padding: 10px 14px; border-radius: 8px; margin-bottom: 16px; background: var(--accent-soft); }
 .aviso.erro { background: color-mix(in srgb, var(--neg) 14%, transparent); color: var(--neg); }

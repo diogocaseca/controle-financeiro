@@ -144,8 +144,9 @@ async def _nao_logado(request: Request, _exc):
     return ir(request, "/login")
 
 
+@app.exception_handler(servicos.MesTravado)
 @app.exception_handler(ExpressaoInvalida)
-async def _expr_invalida(request: Request, exc: ExpressaoInvalida):
+async def _expr_invalida(request: Request, exc: ValueError):
     volta = request.headers.get("referer") or base(request) + "/"
     volta = volta.split("?")[0]
     return RedirectResponse(f"{volta}?erro={quote(str(exc))}", status_code=303)
@@ -248,6 +249,7 @@ def criar_lancamento(
     valor: str = Form(...), verba_id: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
+    servicos.exigir_destravada(db, conta_id, comp)
     db.add(Lancamento(
         conta_id=conta_id, comp=comp, descricao=descricao.strip(), valor=avaliar(valor),
         valor_expr=valor.strip(), verba_id=int(verba_id) if verba_id else None, ordem=50,
@@ -261,6 +263,7 @@ def editar_lancamento_form(request: Request, lid: int, _u: Usuario = Logado, db:
     l = db.get(Lancamento, lid) or _404()
     return render(
         request, "lancamento.html", l=l, verbas=servicos.verbas_do_mes(db, l.comp),
+        travado=servicos.esta_travada(db, l.conta_id, l.comp),
         contas=db.scalars(select(Conta).order_by(Conta.ordem)).all(),
     )
 
@@ -273,12 +276,15 @@ def editar_lancamento(
 ):
     l = db.get(Lancamento, lid) or _404()
     volta = l.comp
+    novo_comp = comp_de(mes) if mes and not l.recorrente_id and not l.parcelada_id else l.comp
+    servicos.exigir_destravada(db, l.conta_id, l.comp)
+    servicos.exigir_destravada(db, conta_id, novo_comp)
     l.descricao, l.valor, l.valor_expr = descricao.strip(), avaliar(valor), valor.strip()
     l.conta_id = conta_id
     l.verba_id = int(verba_id) if verba_id else None
     l.verba_valor = avaliar(verba_valor) if l.verba_id and verba_valor.strip() else None
-    if mes and not l.recorrente_id and not l.parcelada_id:
-        l.comp = comp_de(mes)
+    if novo_comp != l.comp:
+        l.comp = novo_comp
         servicos.garantir_mes(db, l.comp)
     db.commit()
     return _volta_mes(request, volta)
@@ -288,6 +294,7 @@ def editar_lancamento(
 def excluir_lancamento(request: Request, lid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
     l = db.get(Lancamento, lid) or _404()
     comp = l.comp
+    servicos.exigir_destravada(db, l.conta_id, comp)
     db.delete(l)
     db.commit()
     return _volta_mes(request, comp)
@@ -313,6 +320,20 @@ def confirmar_fatura(
         db.add(FaturaConfirmada(conta_id=conta_id, comp=comp))
     db.commit()
     return _volta_mes(request, comp)
+
+
+@app.post("/faturas/{conta_id}/{comp}/trava")
+def alternar_trava(
+    request: Request, conta_id: int, comp: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db),
+):
+    conta = db.get(Conta, conta_id) or _404()
+    estado = servicos.alternar_trava(db, conta, comp)
+    db.commit()
+    if estado.travada:
+        msg = f"Fatura de {nome_competencia(comp)} do {conta.nome} travada."
+    else:
+        msg = f"Fatura de {nome_competencia(comp)} do {conta.nome} destravada até o fim do dia de hoje."
+    return _volta_mes(request, comp, msg)
 
 
 def _404():
@@ -388,9 +409,13 @@ def editar_recorrente(
 ):
     r = db.get(Recorrente, rid) or _404()
     _preencher_recorrente(r, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor)
-    servicos.sincronizar_recorrente(db, r, comp_de(aplicar_de))
+    preservados = servicos.sincronizar_recorrente(db, r, comp_de(aplicar_de))
     db.commit()
-    return ir(request, "/recorrentes", f"“{r.descricao}” atualizado.")
+    msg = f"“{r.descricao}” atualizado."
+    if preservados:
+        msg += " Meses com fatura travada não foram alterados: " + ", ".join(
+            nome_competencia(c) for c in sorted(preservados)) + "."
+    return ir(request, "/recorrentes", msg)
 
 
 @app.post("/recorrentes/{rid}/excluir")
@@ -494,15 +519,18 @@ def editar_parcelada(
     _preencher_parcelada(
         p, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes, verba_id, verba_valor,
     )
-    servicos.gerar_parcelas(db, p)
+    preservadas = servicos.gerar_parcelas(db, p)
     db.commit()
-    return ir(request, "/parceladas", f"“{p.descricao}” atualizada.")
+    msg = f"“{p.descricao}” atualizada."
+    if preservadas:
+        msg += f" Parcela(s) {', '.join(map(str, sorted(preservadas)))} em fatura travada não foram alteradas."
+    return ir(request, "/parceladas", msg)
 
 
 @app.post("/parceladas/{pid}/excluir")
 def excluir_parcelada(request: Request, pid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
     p = db.get(Parcelada, pid) or _404()
-    db.delete(p)
+    servicos.excluir_parcelada(db, p)
     db.commit()
     return ir(request, "/parceladas", "Compra excluída.")
 
@@ -609,9 +637,14 @@ def listar_contas(request: Request, _u: Usuario = Logado, db: Session = Depends(
 def salvar_conta(
     request: Request, id: str = Form(""), nome: str = Form(...), tipo: str = Form("corrente"),
     paga_por_id: str = Form(""), ordem: int = Form(0), ativa: str = Form(""), confirmacao: str = Form(""),
+    dia_fechamento: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
+    dia = int(dia_fechamento) if dia_fechamento.strip() and tipo == "cartao" else None
+    if dia is not None and not 1 <= dia <= 31:
+        raise ExpressaoInvalida("o dia de fechamento deve ser entre 1 e 31")
     c = db.get(Conta, int(id)) if id else Conta()
+    c.dia_fechamento = dia
     c.nome, c.tipo, c.ordem = nome.strip(), tipo, ordem
     c.confirmacao = bool(confirmacao)
     c.paga_por_id = int(paga_por_id) if paga_por_id and tipo == "cartao" else None

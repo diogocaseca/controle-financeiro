@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% set aba = 'contas' %}
 {% block conteudo %}
-<div class="cabecalho"><div><h1>Contas</h1><div class="sub">A fatura de cada cartão entra como uma linha na conta corrente que a paga. “Marcação ✓” liga o botão de confirmado nos lançamentos da conta; a linha da fatura segue a conta que a paga.</div></div></div>
+<div class="cabecalho"><div><h1>Contas</h1><div class="sub">A fatura de cada cartão entra como uma linha na conta corrente que a paga. “Marcação ✓” liga o botão de confirmado nos lançamentos da conta; a linha da fatura segue a conta que a paga. “Fecha dia” (cartões): a partir desse dia a fatura do mês trava, evitando lançar no mês errado; dá para destravar no próprio mês.</div></div></div>
 <div class="pilha">
 {% for c in contas + [none] %}
 <section class="card">
@@ -17,6 +17,8 @@
       <option value="">—</option>
       {% for o in contas if not o.eh_cartao %}<option value="{{ o.id }}" {{ 'selected' if c and c.paga_por_id == o.id }}>{{ o.nome }}</option>{% endfor %}
     </select></div>
+    <div style="flex:0 1 110px" title="Só para cartão: a fatura do mês trava sozinha a partir deste dia"><label>Fecha dia</label>
+      <input type="number" name="dia_fechamento" min="1" max="31" value="{{ c.dia_fechamento if c and c.dia_fechamento else '' }}" placeholder="—"></div>
     <div style="flex:0 1 80px"><label>Ordem</label><input type="number" name="ordem" value="{{ c.ordem if c else contas|length + 1 }}"></div>
     <label style="flex:0 0 auto;display:flex;gap:6px;align-items:center;color:var(--text);margin-bottom:10px" title="Mostra o botão ✓ para marcar lançamentos como recebidos/débito cadastrado"><input type="checkbox" name="confirmacao" value="1" {{ 'checked' if not c or c.confirmacao }}> Marcação ✓</label>
     {% if c %}<label style="flex:0 0 auto;display:flex;gap:6px;align-items:center;color:var(--text);margin-bottom:10px"><input type="checkbox" name="ativa" value="1" {{ 'checked' if c.ativa }}> Ativa</label>{% endif %}

@@ -1,15 +1,92 @@
 """Regras de negócio: geração dos meses, parcelas, verbas e saldos."""
 
+import calendar
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import date
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from . import config
+from .dinheiro import ano_mes, nome_competencia
 from .models import (
-    Conta, Controle, FaturaConfirmada, Lancamento, MesGerado, Movimento, Parcelada, Recorrente,
+    Conta, Controle, FaturaConfirmada, Lancamento, MesGerado, Movimento, Parcelada, Recorrente, TravaFatura,
 )
+
+
+# ------------------------------------------------------------ trava fatura ---
+
+class MesTravado(ValueError):
+    pass
+
+
+def hoje() -> date:
+    return date.today()
+
+
+@dataclass
+class EstadoTrava:
+    travada: bool
+    motivo: str = ""  # "fechamento" | "manual" | "destravada" | ""
+    fechamento: date | None = None
+    ate: date | None = None  # destravada até este dia
+
+
+def data_fechamento(conta: Conta, comp: int) -> date | None:
+    """Dia em que fecha a fatura do mês (no próprio mês; dia 31 vira o último dia)."""
+    if not conta.eh_cartao or not conta.dia_fechamento:
+        return None
+    ano, mes = ano_mes(comp)
+    return date(ano, mes, min(conta.dia_fechamento, calendar.monthrange(ano, mes)[1]))
+
+
+def estado_trava(db: Session, conta: Conta, comp: int) -> EstadoTrava:
+    if not conta.eh_cartao:
+        return EstadoTrava(False)
+    dia = hoje()
+    fech = data_fechamento(conta, comp)
+    o = db.get(TravaFatura, (conta.id, comp))
+    if o and o.travada:
+        return EstadoTrava(True, "manual", fech)
+    if o and o.ate and o.ate >= dia:
+        return EstadoTrava(False, "destravada", fech, o.ate)
+    auto = fech is not None and dia >= fech
+    return EstadoTrava(auto, "fechamento" if auto else "", fech)
+
+
+def esta_travada(db: Session, conta_id: int, comp: int) -> bool:
+    conta = db.get(Conta, conta_id)
+    return bool(conta) and estado_trava(db, conta, comp).travada
+
+
+def exigir_destravada(db: Session, conta_id: int, comp: int) -> None:
+    if esta_travada(db, conta_id, comp):
+        conta = db.get(Conta, conta_id)
+        raise MesTravado(f"a fatura de {nome_competencia(comp)} do {conta.nome} está travada. "
+                         f"Destrave no mês para alterar.")
+
+
+def alternar_trava(db: Session, conta: Conta, comp: int) -> EstadoTrava:
+    """Travada → destrava até o fim de hoje. Aberta → trava (manual, ou volta à automática)."""
+    atual = estado_trava(db, conta, comp)
+    o = db.get(TravaFatura, (conta.id, comp))
+    if atual.travada:
+        if o:
+            o.travada, o.ate = False, hoje()
+        else:
+            db.add(TravaFatura(conta_id=conta.id, comp=comp, travada=False, ate=hoje()))
+    else:
+        fech = data_fechamento(conta, comp)
+        if fech is not None and hoje() >= fech:
+            if o:
+                db.delete(o)  # volta à trava automática
+        elif o:
+            o.travada, o.ate = True, None
+        else:
+            db.add(TravaFatura(conta_id=conta.id, comp=comp, travada=True))
+    db.flush()
+    return estado_trava(db, conta, comp)
 
 
 # ---------------------------------------------------------------- geração ---
@@ -49,21 +126,29 @@ def _aplicar_recorrente(db: Session, r: Recorrente, comp: int, confirmado: bool 
         ))
 
 
-def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
+def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> set[int]:
     """Refaz os lançamentos do recorrente nos meses já gerados a partir de `a_partir`.
 
     Alterações manuais feitas nesses meses (para esse recorrente) são substituídas;
     meses anteriores ficam como estão.
+    Meses com a fatura do cartão travada não são alterados. Devolve esses meses.
     """
     db.flush()
-    confirmados = set(db.scalars(select(Lancamento.comp).where(
-        Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir, Lancamento.confirmado)))
-    db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir))
-    db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id, Movimento.comp >= a_partir))
+    existentes = db.scalars(select(Lancamento).where(
+        Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir)).all()
+    confirmados = {l.comp for l in existentes if l.confirmado}
     meses = db.scalars(select(MesGerado.comp).where(MesGerado.comp >= a_partir)).all()
+    protegidos = {l.comp for l in existentes if esta_travada(db, l.conta_id, l.comp)}
+    if r.conta_id:
+        protegidos |= {c for c in meses if esta_travada(db, r.conta_id, c)}
+    db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir,
+                                        Lancamento.comp.not_in(protegidos)))
+    db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id, Movimento.comp >= a_partir,
+                                       Movimento.comp.not_in(protegidos)))
     for c in meses:
-        if r.ativa_em(c):
+        if r.ativa_em(c) and c not in protegidos:
             _aplicar_recorrente(db, r, c, confirmado=c in confirmados)
+    return protegidos
 
 
 def encerrar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
@@ -80,6 +165,7 @@ def excluir_recorrente(db: Session, r: Recorrente) -> None:
 
     Gastos no cartão e parcelados que usavam o fixo como verba ficam sem verba.
     """
+    _recusar_se_travado(db, select(Lancamento).where(Lancamento.recorrente_id == r.id), "o fixo")
     db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id))
     db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id))
     db.execute(update(Lancamento).where(Lancamento.verba_id == r.id).values(verba_id=None, verba_valor=None))
@@ -87,17 +173,40 @@ def excluir_recorrente(db: Session, r: Recorrente) -> None:
     db.delete(r)
 
 
-def gerar_parcelas(db: Session, p: Parcelada) -> None:
+def gerar_parcelas(db: Session, p: Parcelada) -> set[int]:
+    """(Re)gera as parcelas. Parcelas em meses travados ficam como estão; uma parcela
+    nova que cairia num mês travado é recusada. Devolve os números preservados."""
     db.flush()
-    confirmadas = set(db.scalars(select(Lancamento.parcela).where(
-        Lancamento.parcelada_id == p.id, Lancamento.confirmado)))
-    db.execute(delete(Lancamento).where(Lancamento.parcelada_id == p.id))
+    existentes = db.scalars(select(Lancamento).where(Lancamento.parcelada_id == p.id)).all()
+    confirmadas = {l.parcela for l in existentes if l.confirmado}
+    protegidas = {l.parcela for l in existentes if esta_travada(db, l.conta_id, l.comp)}
+    for l in existentes:
+        if l.parcela not in protegidas:
+            db.delete(l)
+    db.flush()
     for n in range(max(1, p.lancada_desde), p.parcelas + 1):
+        if n in protegidas:
+            continue
+        exigir_destravada(db, p.conta_id, p.primeira + n - 1)
         db.add(Lancamento(
             conta_id=p.conta_id, comp=p.primeira + n - 1, descricao=p.descricao,
             valor=p.valor_parcela(n), parcelada_id=p.id, parcela=n, ordem=100,
             confirmado=n in confirmadas, verba_id=p.verba_id, verba_valor=p.verba_valor,
         ))
+    return protegidas
+
+
+def excluir_parcelada(db: Session, p: Parcelada) -> None:
+    _recusar_se_travado(db, select(Lancamento).where(Lancamento.parcelada_id == p.id), "a compra")
+    db.delete(p)
+
+
+def _recusar_se_travado(db: Session, consulta, oque: str) -> None:
+    travados = sorted({l.comp for l in db.scalars(consulta) if esta_travada(db, l.conta_id, l.comp)})
+    if travados:
+        meses = ", ".join(nome_competencia(c) for c in travados)
+        raise MesTravado(f"{oque} tem lançamentos em fatura travada ({meses}). "
+                         f"Destrave esses meses para excluir, ou use “Encerrar”.")
 
 
 # ----------------------------------------------------------------- resumo ---
@@ -115,6 +224,7 @@ class Cartao:
     linhas: list[Linha]
     total: int
     confirmada: bool = False
+    trava: EstadoTrava | None = None
 
 
 @dataclass
@@ -237,6 +347,8 @@ def resumo_mes(db: Session, comp: int) -> ResumoMes:
 
     resumo = ResumoMes(comp=comp)
     resumo.contas, resumo.cartoes_avulsos = _montar(db, comp, contas, anterior)
+    for k in [k for rc in resumo.contas for k in rc.cartoes] + resumo.cartoes_avulsos:
+        k.trava = estado_trava(db, k.conta, comp)
     resumo.controles = resumo_controles(db, comp)
     return resumo
 

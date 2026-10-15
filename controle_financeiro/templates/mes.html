@@ -29,11 +29,26 @@
 {% endif %}
 {% endmacro %}
 
-{% macro linha(ln) %}
+{% macro trava(k) %}
+{% set t = k.trava %}
+<div class="trava {{ 'fechada' if t.travada }}">
+  <span>
+    {% if t.travada %}🔒 Fatura travada{% if t.motivo == 'fechamento' %} — fechou em {{ t.fechamento.strftime('%d/%m') }}{% endif %}
+    {% elif t.motivo == 'destravada' %}🔓 Destravada até o fim do dia{% if t.fechamento %} (fechou em {{ t.fechamento.strftime('%d/%m') }}){% endif %}
+    {% elif t.fechamento %}🔓 Aberta — fecha em {{ t.fechamento.strftime('%d/%m') }}
+    {% else %}🔓 Aberta{% endif %}
+  </span>
+  <form class="inline" method="post" action="{{ base }}/faturas/{{ k.conta.id }}/{{ comp }}/trava">
+    <button class="link">{{ 'Destravar para corrigir' if t.travada else 'Travar' }}</button>
+  </form>
+</div>
+{% endmacro %}
+
+{% macro linha(ln, travado=False) %}
 {% set l = ln.lancamento %}
 <tr>
   <td>
-    <a href="{{ base }}/lancamentos/{{ l.id }}" style="color:inherit">{{ l.descricao }}</a>
+    {% if travado %}{{ l.descricao }}{% else %}<a href="{{ base }}/lancamentos/{{ l.id }}" style="color:inherit">{{ l.descricao }}</a>{% endif %}
     {% if l.parcela %}<span class="tag">{{ l.parcela }}/{{ l.parcelada.parcelas }}</span>{% endif %}
     {% if l.eh_verba %}<span class="tag">verba</span>{% elif l.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}
     {% if l.verba %}<span class="tag cinza">{{ l.verba.descricao }}</span>{% endif %}
@@ -48,10 +63,12 @@
   <td class="num"><span class="valor-ok {{ 'on' if usa_ok and l.confirmado }}">{{ valor(ln.efetivo) }}</span></td>
   <td class="acoes">
     {{ botao_ok(base ~ '/lancamentos/' ~ l.id ~ '/confirmar', l.confirmado, l.descricao, usa_ok) }}
+    {% if not travado %}
     <a href="{{ base }}/lancamentos/{{ l.id }}" title="Editar" class="editar">✎</a>
     <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?')">
       <button class="link" title="Excluir">✕</button>
     </form>
+    {% endif %}
   </td>
 </tr>
 {% endmacro %}
@@ -105,15 +122,16 @@
   {% for k in rc.cartoes %}
   <section class="card">
     <h2>{{ k.conta.nome }} <span class="sub">cartão de crédito</span></h2>
+    {{ trava(k) }}
     <table>
       <thead><tr><th>Débitos</th><th class="num">Valor R$</th><th></th></tr></thead>
       <tbody>
-        {% for ln in k.linhas %}{{ linha(ln) }}{% else %}<tr><td colspan="3" class="vazio">Nenhuma compra neste mês.</td></tr>{% endfor %}
+        {% for ln in k.linhas %}{{ linha(ln, k.trava.travada) }}{% else %}<tr><td colspan="3" class="vazio">Nenhuma compra neste mês.</td></tr>{% endfor %}
         <tr class="total"><td>Fatura do mês</td><td class="num"><span class="valor-ok {{ 'on' if k.conta.confirmacao and k.confirmada }}">{{ valor(k.total) }}</span></td>
           <td class="acoes">{{ botao_ok(base ~ '/faturas/' ~ k.conta.id ~ '/' ~ comp ~ '/confirmar', k.confirmada, 'fatura ' ~ k.conta.nome, k.conta.confirmacao) }}</td></tr>
       </tbody>
     </table>
-    {{ form_novo(k.conta, cartao=True) }}
+    {% if not k.trava.travada %}{{ form_novo(k.conta, cartao=True) }}{% endif %}
     <p class="ajuda">Compras parceladas são lançadas em <a href="{{ base }}/parceladas">Parcelados</a>.</p>
   </section>
   {% endfor %}
@@ -122,11 +140,12 @@
   {% for k in resumo.cartoes_avulsos %}
   <section class="card">
     <h2>{{ k.conta.nome }} <span class="sub">cartão sem conta de pagamento</span></h2>
+    {{ trava(k) }}
     <table><tbody>
-      {% for ln in k.linhas %}{{ linha(ln) }}{% endfor %}
+      {% for ln in k.linhas %}{{ linha(ln, k.trava.travada) }}{% endfor %}
       <tr class="total"><td>Fatura do mês</td><td class="num">{{ valor(k.total) }}</td><td></td></tr>
     </tbody></table>
-    {{ form_novo(k.conta, cartao=True) }}
+    {% if not k.trava.travada %}{{ form_novo(k.conta, cartao=True) }}{% endif %}
   </section>
   {% endfor %}
   {% endif %}
