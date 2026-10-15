@@ -19,7 +19,7 @@
       {% for c in controles %}<option value="{{ c.id }}" {{ 'selected' if r and c.id == r.controle_id }}>{{ c.nome }}</option>{% endfor %}
     </select></div>
     <div><label>Valor lançado no controle</label><input name="controle_valor" value="{{ (r.controle_expr or (r.controle_valor|entrada)) if r and r.controle_id else '' }}" placeholder="78,49" autocomplete="off">
-      <div class="ajuda">Ao escolher o controle, é preenchido com o valor acima de sinal invertido (ex.: a parte da Fabiane numa conta dividida). Pode editar.</div></div>
+      <div class="ajuda">Preenchido com o resultado do valor acima e atualizado sempre que ele muda (ex.: a parte da Fabiane numa conta dividida). Pode editar.</div></div>
   </div>
 </fieldset>
 <script>
@@ -29,33 +29,57 @@
   const controle = form.querySelector('[name="controle_id"]');
   const destino = form.querySelector('[name="controle_valor"]');
 
-  // Inverte o sinal da expressão: "-156,98/2" → "156,98/2"; "-999,25-(195/2)" → "-(-999,25-(195/2))".
-  function inverter(expr) {
-    const e = expr.trim().replace(/^=/, "");
-    if (!e) return "";
-    let nivel = 0;
-    for (let i = 1; i < e.length; i++) {
-      const c = e[i];
-      if (c === "(") nivel++;
-      else if (c === ")") nivel--;
-      else if (nivel === 0 && (c === "+" || c === "-") && !/[*\/(]/.test(e[i - 1])) return `-(${e})`;
-    }
-    if (e[0] === "-") return e.slice(1);
-    if (e[0] === "+") return "-" + e.slice(1);
-    return "-" + e;
+  // Mesmas regras de dinheiro.avaliar: "-609,92/2", "1.234,56", "-175-53,9-(-19,9-10)".
+  function avaliar(expr) {
+    let t = expr.trim().replace(/^=/, "").replace(/R\$/g, "").replace(/\s/g, "");
+    if (t.includes(",")) t = t.replace(/(\d)\.(?=\d{3}(\D|$))/g, "$1").replace(/,/g, ".");
+    if (!t) return null;
+    let i = 0;
+    const num = () => {
+      const m = /^\d+(\.\d+)?|^\.\d+/.exec(t.slice(i));
+      if (!m) throw 0;
+      i += m[0].length;
+      return parseFloat(m[0]);
+    };
+    const fator = () => {
+      if (t[i] === "-") { i++; return -fator(); }
+      if (t[i] === "+") { i++; return fator(); }
+      if (t[i] === "(") { i++; const v = soma(); if (t[i] !== ")") throw 0; i++; return v; }
+      return num();
+    };
+    const termo = () => {
+      let v = fator();
+      while (t[i] === "*" || t[i] === "/") {
+        const op = t[i++], d = fator();
+        if (op === "/" && d === 0) throw 0;
+        v = op === "*" ? v * d : v / d;
+      }
+      return v;
+    };
+    const soma = () => {
+      let v = termo();
+      while (t[i] === "+" || t[i] === "-") { const op = t[i++]; v = op === "+" ? v + termo() : v - termo(); }
+      return v;
+    };
+    try {
+      const v = soma();
+      return i === t.length && isFinite(v) ? v : null;
+    } catch { return null; }
+  }
+
+  function formatar(v) {
+    const centavos = Math.round(v * 100 + (v >= 0 ? 1e-9 : -1e-9));
+    const abs = Math.abs(centavos);
+    return (centavos < 0 ? "-" : "") + Math.floor(abs / 100) + "," + String(abs % 100).padStart(2, "0");
   }
 
   function preencher() {
-    if (controle.value && (destino.value === "" || destino.dataset.auto)) {
-      destino.value = inverter(valor.value);
-      destino.dataset.auto = "1";
-    } else if (!controle.value && destino.dataset.auto) {
-      destino.value = "";
-    }
+    if (!controle.value) return;
+    const v = avaliar(valor.value);
+    if (v !== null) destino.value = formatar(v);
   }
 
-  controle.addEventListener("change", preencher);
-  valor.addEventListener("input", () => { if (destino.dataset.auto) preencher(); });
-  destino.addEventListener("input", () => { delete destino.dataset.auto; });
+  controle.addEventListener("change", () => { if (destino.value === "") preencher(); });
+  valor.addEventListener("input", preencher);
 })();
 </script>
