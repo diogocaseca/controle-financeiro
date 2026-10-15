@@ -178,3 +178,27 @@ def test_editar_fixo_a_partir_de(db):
     db.commit()
     assert set(l.comp for l in db.scalars(select(Lancamento).where(Lancamento.recorrente_id == r.id))) == {JAN, JAN + 1}
     assert servicos.resumo_mes(db, JAN + 3).contas[0].linhas == []
+
+
+def test_parcelada_desconta_da_verba(db):
+    nuconta, nubank = contas(db)
+    limpeza = fixo(db, nuconta, "Limpeza", "-600", verba=True)
+    servicos.garantir_mes(db, JAN)
+    p = Parcelada(descricao="Lava louça", conta_id=nubank.id, valor_total=-195130, parcelas=10,
+                  primeira=JAN, lancada_desde=1, verba_id=limpeza.id, verba_valor=19513)
+    db.add(p)
+    db.flush()
+    servicos.gerar_parcelas(db, p)
+    db.commit()
+
+    rc = servicos.resumo_mes(db, JAN).contas[0]
+    linha = next(l for l in rc.linhas if l.lancamento.eh_verba)
+    assert linha.efetivo == -60000 + 19513
+    assert rc.cartoes[0].total == -19513
+
+    # Valor aplicado diferente da parcela (ex.: só metade entra na verba)
+    p.verba_valor = 10000
+    servicos.gerar_parcelas(db, p)
+    db.commit()
+    linha = next(l for l in servicos.resumo_mes(db, JAN).contas[0].linhas if l.lancamento.eh_verba)
+    assert linha.efetivo == -50000

@@ -1,0 +1,49 @@
+// Utilidades compartilhadas pelos formulários.
+window.cf = (() => {
+  // Mesmas regras de dinheiro.avaliar: "-609,92/2", "1.234,56", "-175-53,9-(-19,9-10)".
+  function avaliar(expr) {
+    let t = (expr || "").trim().replace(/^=/, "").replace(/R\$/g, "").replace(/\s/g, "");
+    if (t.includes(",")) t = t.replace(/(\d)\.(?=\d{3}(\D|$))/g, "$1").replace(/,/g, ".");
+    if (!t) return null;
+    let i = 0;
+    const num = () => {
+      const m = /^\d+(\.\d+)?|^\.\d+/.exec(t.slice(i));
+      if (!m) throw 0;
+      i += m[0].length;
+      return parseFloat(m[0]);
+    };
+    const fator = () => {
+      if (t[i] === "-") { i++; return -fator(); }
+      if (t[i] === "+") { i++; return fator(); }
+      if (t[i] === "(") { i++; const v = soma(); if (t[i] !== ")") throw 0; i++; return v; }
+      return num();
+    };
+    const termo = () => {
+      let v = fator();
+      while (t[i] === "*" || t[i] === "/") {
+        const op = t[i++], d = fator();
+        if (op === "/" && d === 0) throw 0;
+        v = op === "*" ? v * d : v / d;
+      }
+      return v;
+    };
+    const soma = () => {
+      let v = termo();
+      while (t[i] === "+" || t[i] === "-") { const op = t[i++]; v = op === "+" ? v + termo() : v - termo(); }
+      return v;
+    };
+    try {
+      const v = soma();
+      return i === t.length && isFinite(v) ? v : null;
+    } catch { return null; }
+  }
+
+  // Formato editável, como dinheiro.para_entrada: -304,96
+  function formatar(v) {
+    const centavos = Math.round(v * 100 + (v >= 0 ? 1e-9 : -1e-9));
+    const abs = Math.abs(centavos);
+    return (centavos < 0 ? "-" : "") + Math.floor(abs / 100) + "," + String(abs % 100).padStart(2, "0");
+  }
+
+  return { avaliar, formatar };
+})();

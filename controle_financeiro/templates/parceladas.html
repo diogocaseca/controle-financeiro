@@ -11,7 +11,7 @@
   {% for p in lista %}
     {% set atual = [[hoje - p.primeira + 1, 0]|max, p.parcelas]|min %}
     <tr>
-      <td><a href="{{ base }}/parceladas/{{ p.id }}">{{ p.descricao }}</a> <span class="sub">{{ p.conta.nome }}</span></td>
+      <td><a href="{{ base }}/parceladas/{{ p.id }}">{{ p.descricao }}</a> <span class="sub">{{ p.conta.nome }}</span>{% if p.verba %}<span class="tag cinza">{{ p.verba.descricao }}</span>{% endif %}</td>
       <td class="num">{{ valor(p.valor_parcela(1)) }}</td>
       <td class="num esconde-m">{{ valor(p.valor_total) }}</td>
       <td><div style="display:flex;gap:8px;align-items:center"><div class="barra" style="flex:1"><i style="width:{{ (atual / p.parcelas * 100)|round }}%"></i></div><span class="sub">{{ atual }}/{{ p.parcelas }}</span></div></td>

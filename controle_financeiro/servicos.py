@@ -86,7 +86,7 @@ def gerar_parcelas(db: Session, p: Parcelada) -> None:
         db.add(Lancamento(
             conta_id=p.conta_id, comp=p.primeira + n - 1, descricao=p.descricao,
             valor=p.valor_parcela(n), parcelada_id=p.id, parcela=n, ordem=100,
-            confirmado=n in confirmadas,
+            confirmado=n in confirmadas, verba_id=p.verba_id, verba_valor=p.verba_valor,
         ))
 
 
@@ -154,7 +154,7 @@ def _montar(db: Session, comp: int, contas: list[Conta], saldo_anterior: dict[in
         if c.eh_cartao:
             for l in lancs[c.id]:
                 if l.verba_id:
-                    gasto_verba[l.verba_id] += l.valor
+                    gasto_verba[l.verba_id] -= l.desconto_verba
 
     faturas_ok = set(db.scalars(select(FaturaConfirmada.conta_id).where(FaturaConfirmada.comp == comp)))
     cartoes: dict[int, Cartao] = {}

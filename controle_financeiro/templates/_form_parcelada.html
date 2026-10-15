@@ -13,3 +13,39 @@
   <div><label>Parcela nesse mês</label><input type="number" name="parcela_no_mes" min="1" value="{{ p.lancada_desde if p else 1 }}" required>
     <div class="ajuda">Para compras já em andamento: ex. “5” se em {{ nome_comp(comp_hoje, True) }} cai a 5/10.</div></div>
 </div>
+{% if verbas %}
+<fieldset>
+  <legend>Verba (opcional)</legend>
+  <div class="campos">
+    <div><label>Descontar da verba</label><select name="verba_id">
+      <option value="">Nenhuma</option>
+      {% for v in verbas %}<option value="{{ v.id }}" {{ 'selected' if p and v.id == p.verba_id }}>{{ v.descricao }}</option>{% endfor %}
+    </select></div>
+    <div><label>Valor aplicado na verba (por parcela)</label>
+      <input name="verba_valor" value="{{ (p.verba_expr or (p.verba_valor|entrada if p.verba_valor is not none else '')) if p and p.verba_id else '' }}" placeholder="195,13" autocomplete="off">
+      <div class="ajuda">Preenchido com o valor da parcela de sinal invertido ao escolher a verba. Pode editar.</div></div>
+  </div>
+</fieldset>
+<script>
+(() => {
+  const form = document.currentScript.closest("form");
+  const campo = (n) => form.querySelector(`[name="${n}"]`);
+  const valor = campo("valor"), tipo = campo("tipo_valor"), parcelas = campo("parcelas");
+  const verba = campo("verba_id"), destino = campo("verba_valor");
+
+  function preencher() {
+    if (!verba.value) return;
+    const v = cf.avaliar(valor.value), n = parseInt(parcelas.value, 10);
+    if (v === null || !(n > 0)) return;
+    // Compra é sempre saída; a parcela invertida é o que sai da verba.
+    const parcela = tipo.value === "parcela" ? Math.abs(v) : Math.abs(v) / n;
+    destino.value = cf.formatar(parcela);
+  }
+
+  verba.addEventListener("change", () => { if (verba.value) preencher(); else destino.value = ""; });
+  valor.addEventListener("input", preencher);
+  tipo.addEventListener("change", preencher);
+  parcelas.addEventListener("input", preencher);
+})();
+</script>
+{% endif %}

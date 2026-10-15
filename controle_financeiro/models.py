@@ -101,8 +101,14 @@ class Parcelada(Base):
     primeira: Mapped[int] = mapped_column(Integer)
     # Primeira parcela que foi lançada no sistema (para compras já em andamento).
     lancada_desde: Mapped[int] = mapped_column(Integer, default=1)
+    # Verba descontada por cada parcela (ex.: Limpeza). verba_valor positivo reduz
+    # o que sai da verba; vazio = o valor da parcela com sinal invertido.
+    verba_id: Mapped[int | None] = mapped_column(ForeignKey("recorrentes.id", ondelete="SET NULL"))
+    verba_valor: Mapped[int | None] = mapped_column(Integer)
+    verba_expr: Mapped[str] = mapped_column(String(255), default="")
 
     conta: Mapped[Conta] = relationship()
+    verba: Mapped[Recorrente | None] = relationship()
     lancamentos: Mapped[list["Lancamento"]] = relationship(
         back_populates="parcelada", cascade="all, delete-orphan"
     )
@@ -128,6 +134,8 @@ class Lancamento(Base):
     parcela: Mapped[int | None] = mapped_column(Integer)
     # Gasto no cartão que consome uma verba (Recorrente com verba=True).
     verba_id: Mapped[int | None] = mapped_column(ForeignKey("recorrentes.id", ondelete="SET NULL"))
+    # Quanto este gasto desconta da verba (positivo). Vazio = o valor com sinal invertido.
+    verba_valor: Mapped[int | None] = mapped_column(Integer)
     eh_verba: Mapped[bool] = mapped_column(Boolean, default=False)
     # Marcação "verde" da planilha: recebido de fato / débito automático cadastrado.
     confirmado: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -136,6 +144,10 @@ class Lancamento(Base):
     conta: Mapped[Conta] = relationship()
     recorrente: Mapped[Recorrente | None] = relationship(foreign_keys=[recorrente_id])
     verba: Mapped[Recorrente | None] = relationship(foreign_keys=[verba_id])
+
+    @property
+    def desconto_verba(self) -> int:
+        return -self.valor if self.verba_valor is None else self.verba_valor
     parcelada: Mapped[Parcelada | None] = relationship(back_populates="lancamentos")
 
 

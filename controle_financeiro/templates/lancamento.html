@@ -23,8 +23,27 @@
         <option value="">Sem verba</option>
         {% for v in verbas %}<option value="{{ v.id }}" {{ 'selected' if v.id == l.verba_id }}>{{ v.descricao }}</option>{% endfor %}
       </select></div>
+      <div><label>Valor aplicado na verba</label>
+        <input name="verba_valor" value="{{ (l.desconto_verba|entrada) if l.verba_id else '' }}" autocomplete="off">
+        <div class="ajuda">Preenchido com o valor de sinal invertido. Pode editar.</div></div>
       {% endif %}
     </div>
+    {% if verbas %}
+    <script>
+    (() => {
+      const form = document.currentScript.closest("form");
+      const valor = form.querySelector('[name="valor"]'), verba = form.querySelector('[name="verba_id"]');
+      const destino = form.querySelector('[name="verba_valor"]');
+      function preencher() {
+        if (!verba.value) return;
+        const v = cf.avaliar(valor.value);
+        if (v !== null) destino.value = cf.formatar(-v);
+      }
+      verba.addEventListener("change", () => { if (verba.value) preencher(); else destino.value = ""; });
+      valor.addEventListener("input", preencher);
+    })();
+    </script>
+    {% endif %}
     <div style="display:flex;gap:8px;justify-content:space-between">
       <button>Salvar</button>
       <button class="perigo" form="excluir" onclick="return confirm('Excluir “{{ l.descricao }}” deste mês?')">Excluir</button>

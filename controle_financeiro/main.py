@@ -63,7 +63,9 @@ templates.env.filters["entrada"] = para_entrada
 templates.env.filters["eh_expr"] = eh_expressao
 templates.env.globals.update(nome_comp=nome_competencia, MESES=MESES, ano_mes=ano_mes)
 # Muda o endereço do CSS sempre que o arquivo muda, para o navegador não usar a versão em cache.
-templates.env.globals["css_v"] = hashlib.sha256((AQUI / "static" / "style.css").read_bytes()).hexdigest()[:10]
+templates.env.globals["css_v"] = hashlib.sha256(
+    b"".join((AQUI / "static" / nome).read_bytes() for nome in ("style.css", "app.js"))
+).hexdigest()[:10]
 
 
 def base(request: Request) -> str:
@@ -246,7 +248,7 @@ def editar_lancamento_form(request: Request, lid: int, _u: Usuario = Logado, db:
 @app.post("/lancamentos/{lid}")
 def editar_lancamento(
     request: Request, lid: int, descricao: str = Form(...), valor: str = Form(...),
-    conta_id: int = Form(...), verba_id: str = Form(""), mes: str = Form(""),
+    conta_id: int = Form(...), verba_id: str = Form(""), verba_valor: str = Form(""), mes: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     l = db.get(Lancamento, lid) or _404()
@@ -254,6 +256,7 @@ def editar_lancamento(
     l.descricao, l.valor, l.valor_expr = descricao.strip(), avaliar(valor), valor.strip()
     l.conta_id = conta_id
     l.verba_id = int(verba_id) if verba_id else None
+    l.verba_valor = avaliar(verba_valor) if l.verba_id and verba_valor.strip() else None
     if mes and not l.recorrente_id and not l.parcelada_id:
         l.comp = comp_de(mes)
         servicos.garantir_mes(db, l.comp)
@@ -391,7 +394,14 @@ def listar_parceladas(request: Request, _u: Usuario = Logado, db: Session = Depe
         andamento=[p for p in todas if p.primeira + p.parcelas - 1 >= hoje],
         quitadas=[p for p in todas if p.primeira + p.parcelas - 1 < hoje],
         cartoes=db.scalars(select(Conta).where(Conta.ativa).order_by(Conta.tipo, Conta.ordem)).all(),
+        verbas=_verbas_ativas(db),
     )
+
+
+def _verbas_ativas(db: Session, incluir: int | None = None) -> list[Recorrente]:
+    hoje = comp_hoje()
+    q = select(Recorrente).where(Recorrente.verba).order_by(Recorrente.descricao)
+    return [r for r in db.scalars(q) if r.fim is None or r.fim >= hoje or r.id == incluir]
 
 
 @app.get("/parceladas/{pid}")
@@ -400,10 +410,16 @@ def editar_parcelada_form(request: Request, pid: int, _u: Usuario = Logado, db: 
     return render(
         request, "parcelada.html", p=p,
         cartoes=db.scalars(select(Conta).order_by(Conta.tipo, Conta.ordem)).all(),
+        verbas=_verbas_ativas(db, incluir=p.verba_id),
     )
 
 
-def _preencher_parcelada(p: Parcelada, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes):
+def _preencher_parcelada(
+    p: Parcelada, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes, verba_id="", verba_valor="",
+):
+    p.verba_id = int(verba_id) if verba_id else None
+    p.verba_expr = verba_valor.strip() if p.verba_id else ""
+    p.verba_valor = avaliar(verba_valor) if p.verba_id and verba_valor.strip() else None
     p.descricao = descricao.strip()
     p.conta_id = conta_id
     p.parcelas = parcelas
@@ -422,11 +438,13 @@ def _preencher_parcelada(p: Parcelada, descricao, conta_id, valor, tipo_valor, p
 def criar_parcelada(
     request: Request, descricao: str = Form(...), conta_id: int = Form(...), valor: str = Form(...),
     tipo_valor: str = Form("total"), parcelas: int = Form(...), mes: str = Form(...),
-    parcela_no_mes: int = Form(1),
+    parcela_no_mes: int = Form(1), verba_id: str = Form(""), verba_valor: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     p = Parcelada()
-    _preencher_parcelada(p, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes)
+    _preencher_parcelada(
+        p, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes, verba_id, verba_valor,
+    )
     db.add(p)
     db.flush()
     servicos.gerar_parcelas(db, p)
@@ -438,11 +456,13 @@ def criar_parcelada(
 def editar_parcelada(
     request: Request, pid: int, descricao: str = Form(...), conta_id: int = Form(...), valor: str = Form(...),
     tipo_valor: str = Form("total"), parcelas: int = Form(...), mes: str = Form(...),
-    parcela_no_mes: int = Form(1),
+    parcela_no_mes: int = Form(1), verba_id: str = Form(""), verba_valor: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     p = db.get(Parcelada, pid) or _404()
-    _preencher_parcelada(p, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes)
+    _preencher_parcelada(
+        p, descricao, conta_id, valor, tipo_valor, parcelas, mes, parcela_no_mes, verba_id, verba_valor,
+    )
     servicos.gerar_parcelas(db, p)
     db.commit()
     return ir(request, "/parceladas", f"“{p.descricao}” atualizada.")

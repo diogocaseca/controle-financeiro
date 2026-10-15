@@ -44,6 +44,10 @@ def iniciar(url: str | None = None) -> Engine:
 _COLUNAS_NOVAS = [
     ("lancamentos", "confirmado", "BOOLEAN NOT NULL DEFAULT 0"),
     ("contas", "confirmacao", "BOOLEAN NOT NULL DEFAULT 1"),
+    ("lancamentos", "verba_valor", "INTEGER"),
+    ("parceladas", "verba_id", "INTEGER REFERENCES recorrentes(id) ON DELETE SET NULL"),
+    ("parceladas", "verba_valor", "INTEGER"),
+    ("parceladas", "verba_expr", "VARCHAR(255) NOT NULL DEFAULT ''"),
 ]
 
 

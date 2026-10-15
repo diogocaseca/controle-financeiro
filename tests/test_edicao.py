@@ -46,3 +46,26 @@ def test_editar_lancamento_pelo_mes(cliente):
     with banco.SessionLocal() as db:
         l = db.get(Lancamento, lid)
         assert (l.descricao, l.valor) == ("Mercado", -10000)
+
+
+def test_parcelada_com_verba_pela_tela(cliente):
+    cliente.get("/mes/2026/10")
+    cliente.post("/recorrentes", data={"descricao": "Limpeza", "conta_id": "1", "valor": "-600", "verba": "1", "inicio": "2026-10"})
+    r = cliente.get("/parceladas")
+    assert 'name="verba_valor"' in r.text and ">Limpeza</option>" in r.text
+
+    cliente.post("/parceladas", data={
+        "descricao": "Lava louça", "conta_id": 2, "valor": "1951,30", "tipo_valor": "total", "parcelas": 10,
+        "mes": "2026-10", "parcela_no_mes": 1, "verba_id": "1", "verba_valor": "195,13",
+    })
+    r = cliente.get("/mes/2026/10")
+    assert "-404,87" in r.text  # -600 + 195,13
+
+    # Ajuste numa parcela isolada pela edição do lançamento
+    with banco.SessionLocal() as db:
+        lid = db.scalar(select(Lancamento.id).where(Lancamento.parcela == 1))
+    cliente.post(f"/lancamentos/{lid}", data={
+        "descricao": "Lava louça", "valor": "-195,13", "conta_id": 2, "verba_id": "1", "verba_valor": "100",
+    })
+    r = cliente.get("/mes/2026/10")
+    assert "-500,00" in r.text and "desconta 100,00 da Limpeza" in r.text

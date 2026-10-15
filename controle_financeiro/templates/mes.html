@@ -37,6 +37,7 @@
     {% if l.parcela %}<span class="tag">{{ l.parcela }}/{{ l.parcelada.parcelas }}</span>{% endif %}
     {% if l.eh_verba %}<span class="tag">verba</span>{% elif l.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}
     {% if l.verba %}<span class="tag cinza">{{ l.verba.descricao }}</span>{% endif %}
+    {% if l.verba and l.verba_valor is not none and l.verba_valor != -l.valor %}<div class="expr">desconta {{ l.verba_valor|brl }} da {{ l.verba.descricao }}</div>{% endif %}
     {% if l.eh_verba and ln.gasto_cartao %}
       <div class="expr">verba {{ l.valor|brl }} · já gasto no cartão {{ ln.gasto_cartao|brl }}{% if ln.efetivo > 0 %} · a receber {{ ln.efetivo|brl }}{% endif %}</div>
     {% elif l.valor_expr|eh_expr %}
