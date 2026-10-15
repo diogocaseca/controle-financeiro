@@ -3,3 +3,14 @@
 {%- endmacro %}
 
 {% macro opcoes_mes(selecionado) -%}{{ selecionado|mes_input }}{%- endmacro %}
+
+{# Seção recolhida que pode ser escondida por inteiro; a escolha fica no navegador. #}
+{% macro secao_ocultavel(chave, titulo, n) -%}
+<div class="secao-ocultavel" data-chave="cf.esconder.{{ chave }}" style="margin-top:16px">
+  <div class="secao-conteudo">
+    <details><summary>{{ titulo }} ({{ n }})</summary>{{ caller() }}</details>
+    <button type="button" class="link secao-esconder" style="margin-top:6px">Esconder {{ titulo|lower }}</button>
+  </div>
+  <button type="button" class="link secao-mostrar" hidden>Mostrar {{ titulo|lower }} ({{ n }})</button>
+</div>
+{%- endmacro %}

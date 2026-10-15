@@ -47,3 +47,22 @@ window.cf = (() => {
 
   return { avaliar, formatar };
 })();
+
+// Seções que podem ser escondidas (ex.: parcelados quitados, fixos encerrados).
+document.addEventListener("DOMContentLoaded", () => {
+  for (const secao of document.querySelectorAll(".secao-ocultavel")) {
+    const chave = secao.dataset.chave;
+    const conteudo = secao.querySelector(".secao-conteudo"), mostrar = secao.querySelector(".secao-mostrar");
+    const aplicar = (esconder) => { conteudo.hidden = esconder; mostrar.hidden = !esconder; };
+    let esconder = false;
+    try { esconder = localStorage.getItem(chave) === "1"; } catch {}
+    aplicar(esconder);
+    secao.addEventListener("click", (ev) => {
+      const alvo = ev.target.closest(".secao-esconder, .secao-mostrar");
+      if (!alvo) return;
+      esconder = alvo.classList.contains("secao-esconder");
+      aplicar(esconder);
+      try { localStorage.setItem(chave, esconder ? "1" : "0"); } catch {}
+    });
+  }
+});

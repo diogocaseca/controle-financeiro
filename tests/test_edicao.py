@@ -106,4 +106,13 @@ def test_quitadas_com_botao_esconder(cliente):
                                       "mes": "2020-01", "parcela_no_mes": 1})
     r = cliente.get("/parceladas")
     assert "Quitadas (1)" in r.text
-    assert 'data-quitadas="esconder"' in r.text and "Mostrar quitadas (1)" in r.text
+    assert "Esconder quitadas" in r.text and "Mostrar quitadas (1)" in r.text
+
+
+def test_encerrados_com_botao_esconder(cliente):
+    cliente.post("/recorrentes", data={"descricao": "Antigo", "conta_id": "1", "valor": "-10",
+                                       "inicio": "2020-01", "fim": "2020-06"})
+    r = cliente.get("/recorrentes")
+    assert "Encerrados (1)" in r.text
+    assert "Esconder encerrados" in r.text and "Mostrar encerrados (1)" in r.text
+    assert 'data-chave="cf.esconder.encerrados"' in r.text

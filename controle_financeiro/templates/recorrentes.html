@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import valor %}
+{% from "_macros.html" import valor, secao_ocultavel %}
 {% set aba = 'rec' %}
 {% block conteudo %}
 <div class="cabecalho"><div><h1>Fixos do mês</h1><div class="sub">Salário, contas fixas e verbas. São lançados automaticamente em cada mês novo.</div></div></div>
@@ -40,13 +40,13 @@
 </section>
 
 {% if encerrados %}
-<details style="margin-top:16px"><summary>Encerrados ({{ encerrados|length }})</summary>
+{% call secao_ocultavel("encerrados", "Encerrados", encerrados|length) %}
   <section class="card" style="margin-top:8px"><table><tbody>
   {% for r in encerrados %}
     <tr><td><a href="{{ base }}/recorrentes/{{ r.id }}">{{ r.descricao }}</a></td><td class="num">{{ valor(r.valor) }}</td><td class="sub">{{ nome_comp(r.inicio, True) }} → {{ nome_comp(r.fim, True) }}</td><td class="acoes"><a href="{{ base }}/recorrentes/{{ r.id }}" title="Editar" class="editar">✎</a>
           <form class="inline" method="post" action="{{ base }}/recorrentes/{{ r.id }}/excluir" onsubmit="return confirm('Excluir “{{ r.descricao }}” e todos os seus lançamentos em todos os meses? Para manter o histórico, use Encerrar na edição do fixo.')"><button class="link" title="Excluir">✕</button></form></td></tr>
   {% endfor %}
   </tbody></table></section>
-</details>
+{% endcall %}
 {% endif %}
 {% endblock %}
