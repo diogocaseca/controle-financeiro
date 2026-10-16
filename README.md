@@ -46,4 +46,7 @@ como pasta de dados, que é o volume persistente de um add-on. Ainda falta criar
 
 - Importar extrato e fatura do Nubank (CSV/OFX)
 - Migrações de banco (Alembic) antes de mudar o esquema com dados reais
-- Add-on do Home Assistant
+
+## Licença
+
+[MIT](LICENSE) © 2026 Diogo Caseca
