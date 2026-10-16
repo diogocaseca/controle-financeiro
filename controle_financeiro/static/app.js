@@ -83,3 +83,60 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.addEventListener("click", (ev) => { if (menu.open && !menu.contains(ev.target)) menu.open = false; });
 });
+
+// Textos de ajuda embaixo dos campos viram uma dica (ⓘ) ao lado do rótulo,
+// para economizar espaço. Mouse: aparece ao passar; toque: ao tocar no ícone.
+document.addEventListener("DOMContentLoaded", () => {
+  let n = 0;
+  for (const ajuda of document.querySelectorAll("div.ajuda, span.ajuda")) {
+    const campo = ajuda.parentElement;
+    const rotulos = [...campo.children].filter((el) => el.tagName === "LABEL");
+    if (!rotulos.length) continue;  // ajuda de página/seção: continua visível
+    // rótulo mais próximo antes do texto (ex.: a caixa "Alterar o valor"), senão o primeiro
+    const antes = rotulos.filter((l) => l.compareDocumentPosition(ajuda) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const rotulo = antes.length ? antes[antes.length - 1] : rotulos[0];
+
+    const id = `dica-${++n}`;
+    const dica = document.createElement("span");
+    dica.className = "dica";
+    dica.tabIndex = 0;
+    dica.setAttribute("role", "button");
+    dica.setAttribute("aria-label", "Ajuda");
+    dica.setAttribute("aria-describedby", id);
+    dica.textContent = "i";
+    const texto = document.createElement("span");
+    texto.className = "dica-texto";
+    texto.id = id;
+    texto.setAttribute("role", "tooltip");
+    texto.innerHTML = ajuda.innerHTML.replace(/^\s*—\s*/, "");
+    dica.appendChild(texto);
+    rotulo.appendChild(dica);
+    ajuda.remove();
+  }
+
+  const ajustar = (dica) => {
+    // mantém a caixa dentro da tela
+    const t = dica.querySelector(".dica-texto");
+    t.style.left = "0px";
+    const r = t.getBoundingClientRect(), margem = 8;
+    const largura = document.documentElement.clientWidth;  // innerWidth pode incluir área fora da página
+    let desloc = 0;
+    if (r.right > largura - margem) desloc = largura - margem - r.right;
+    if (r.left + desloc < margem) desloc = margem - r.left;
+    t.style.left = `${desloc}px`;
+  };
+  document.addEventListener("mouseover", (ev) => { const d = ev.target.closest(".dica"); if (d) ajustar(d); });
+  document.addEventListener("focusin", (ev) => { const d = ev.target.closest(".dica"); if (d) ajustar(d); });
+  document.addEventListener("click", (ev) => {
+    const d = ev.target.closest(".dica");
+    for (const aberta of document.querySelectorAll(".dica.aberta")) if (aberta !== d) aberta.classList.remove("aberta");
+    if (!d) return;
+    ev.preventDefault();  // não marca a caixa do rótulo
+    ev.stopPropagation();
+    d.classList.toggle("aberta");
+    ajustar(d);
+  }, true);
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") for (const d of document.querySelectorAll(".dica.aberta")) d.classList.remove("aberta");
+  });
+});
