@@ -388,14 +388,16 @@ def _preencher_recorrente(r: Recorrente, descricao, conta_id, valor, verba, inic
     r.ordem = ordem
     r.descricao = descricao.strip()
     r.conta_id = int(conta_id) if conta_id else None
-    r.valor_expr = valor.strip() if r.conta_id else ""
-    r.valor = avaliar(valor) if r.conta_id else 0
+    if valor is not None:  # None: valor mantido (edição sem "Alterar o valor")
+        r.valor_expr = valor.strip() if r.conta_id else ""
+        r.valor = avaliar(valor) if r.conta_id else 0
     r.verba = bool(verba) and r.conta_id is not None
     r.inicio = comp_de(inicio)
     r.fim = comp_de(fim) if fim else None
     r.controle_id = int(controle_id) if controle_id else None
-    r.controle_expr = controle_valor.strip() if r.controle_id else ""
-    r.controle_valor = avaliar(controle_valor) if r.controle_id else 0
+    if controle_valor is not None:
+        r.controle_expr = controle_valor.strip() if r.controle_id else ""
+        r.controle_valor = avaliar(controle_valor) if r.controle_id else 0
     if not r.conta_id and not r.controle_id:
         raise ExpressaoInvalida("escolha uma conta e/ou um controle")
     if r.fim is not None and r.fim < r.inicio:
@@ -424,17 +426,20 @@ def editar_recorrente(
     request: Request, rid: int, descricao: str = Form(...), conta_id: str = Form(""), valor: str = Form(""),
     verba: str = Form(""), inicio: str = Form(...), fim: str = Form(""),
     controle_id: str = Form(""), controle_valor: str = Form(""), aplicar_de: str = Form(...),
-    ordem: str = Form(""),
+    ordem: str = Form(""), alterar_valor: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     r = db.get(Recorrente, rid) or _404()
-    _preencher_recorrente(r, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor,
-                          int(ordem) if ordem.strip() else r.ordem)
+    sobrescrever = bool(alterar_valor)
+    _preencher_recorrente(r, descricao, conta_id, valor if sobrescrever else None, verba, inicio, fim, controle_id,
+                          controle_valor if sobrescrever else None, int(ordem) if ordem.strip() else r.ordem)
     # A ordem é só exibição: vale para todos os meses, inclusive passados e travados.
     db.execute(update(Lancamento).where(Lancamento.recorrente_id == r.id).values(ordem=r.ordem))
-    preservados = servicos.sincronizar_recorrente(db, r, comp_de(aplicar_de))
+    preservados = servicos.sincronizar_recorrente(db, r, comp_de(aplicar_de), sobrescrever_valores=sobrescrever)
     db.commit()
     msg = f"“{r.descricao}” atualizado."
+    if not sobrescrever:
+        msg += " Os valores de cada mês foram mantidos."
     if preservados:
         msg += " Meses com fatura travada não foram alterados: " + ", ".join(
             nome_competencia(c) for c in sorted(preservados)) + "."

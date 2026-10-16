@@ -194,3 +194,50 @@ def test_numera_fixos_antigos_uma_vez(tmp_path):
     banco.iniciar(url)  # já numerados: não mexe de novo
     with banco.SessionLocal() as db:
         assert [r.ordem for r in db.query(Recorrente).order_by(Recorrente.id)] == [1, 2, 0]
+
+
+def test_editar_fixo_sem_alterar_valor_preserva_meses(cliente):
+    from controle_financeiro.models import Movimento, Recorrente
+
+    cliente.get("/mes/2026/10")
+    cliente.get("/mes/2026/12")
+    cliente.post("/controles", data={"nome": "Fabiane"})
+    cliente.post("/recorrentes", data={"descricao": "TIM", "conta_id": "1", "valor": "-100", "inicio": "2026-10",
+                                       "controle_id": "1", "controle_valor": "100"})
+    # ajustes feitos à mão em novembro
+    with banco.SessionLocal() as db:
+        nov = db.scalar(select(Lancamento).where(Lancamento.recorrente_id == 1, Lancamento.comp == 24322))
+        nov.valor = -123
+        db.scalar(select(Movimento).where(Movimento.comp == 24322)).valor = 123
+        db.commit()
+
+    r = cliente.get("/recorrentes/1")
+    assert 'name="alterar_valor"' in r.text
+
+    # sem "Alterar o valor": muda nome e ordem, valor enviado é ignorado, ajuste de novembro fica
+    r = cliente.post("/recorrentes/1", data={"descricao": "Celular", "conta_id": "1", "valor": "-999", "inicio": "2026-10",
+                                             "controle_id": "1", "controle_valor": "999", "aplicar_de": "2026-10",
+                                             "ordem": "7"}, follow_redirects=False)
+    assert "valores%20de%20cada%20m%C3%AAs%20foram%20mantidos" in r.headers["location"]
+    with banco.SessionLocal() as db:
+        lancs = {l.comp: (l.descricao, l.valor, l.ordem) for l in db.scalars(select(Lancamento).where(Lancamento.recorrente_id == 1))}
+        movs = {m.comp: m.valor for m in db.scalars(select(Movimento))}
+        fixo = db.get(Recorrente, 1)
+    assert lancs == {24321: ("Celular", -10000, 7), 24322: ("Celular", -123, 7), 24323: ("Celular", -10000, 7)}
+    assert movs == {24321: 10000, 24322: 123, 24323: 10000}
+    assert (fixo.valor, fixo.controle_valor) == (-10000, 10000)
+
+    # encurtar o período sem alterar valor: remove só os meses que saíram
+    cliente.post("/recorrentes/1", data={"descricao": "Celular", "conta_id": "1", "inicio": "2026-10", "fim": "2026-11",
+                                         "controle_id": "1", "aplicar_de": "2026-10"})
+    with banco.SessionLocal() as db:
+        assert {l.comp: l.valor for l in db.scalars(select(Lancamento))} == {24321: -10000, 24322: -123}
+        assert {m.comp for m in db.scalars(select(Movimento))} == {24321, 24322}
+
+    # com "Alterar o valor": substitui a partir do mês escolhido
+    cliente.post("/recorrentes/1", data={"descricao": "Celular", "conta_id": "1", "valor": "-80", "inicio": "2026-10",
+                                         "fim": "2026-11", "controle_id": "1", "controle_valor": "80",
+                                         "aplicar_de": "2026-11", "alterar_valor": "1"})
+    with banco.SessionLocal() as db:
+        assert {l.comp: l.valor for l in db.scalars(select(Lancamento))} == {24321: -10000, 24322: -8000}
+        assert {m.comp: m.valor for m in db.scalars(select(Movimento))} == {24321: 10000, 24322: 8000}

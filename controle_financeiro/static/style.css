@@ -123,6 +123,7 @@ input, select, textarea {
   width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
   background: var(--surface); color: var(--text); font: inherit;
 }
+input:disabled, select:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; opacity: .7; }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
 input[type=checkbox] { width: auto; }
 .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }

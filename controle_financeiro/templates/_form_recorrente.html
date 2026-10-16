@@ -5,7 +5,13 @@
     {% for c in contas %}<option value="{{ c.id }}" {{ 'selected' if r and c.id == r.conta_id }}>{{ c.nome }}</option>{% endfor %}
   </select></div>
   <div><label>Valor</label><input name="valor" value="{{ (r.valor_expr or (r.valor|entrada)) if r and r.conta_id else '' }}" placeholder="-156,98/2" autocomplete="off">
-    <div class="ajuda">Negativo = saída, positivo = entrada.</div></div>
+    {% if r %}
+    <label style="display:flex;gap:6px;align-items:center;color:var(--text);margin:6px 0 0">
+      <input type="checkbox" name="alterar_valor" value="1" class="alterar-valor"> Alterar o valor</label>
+    <div class="ajuda">Marcado, os valores dos meses a partir de “Aplicar mudanças a partir de” são substituídos (inclusive ajustes feitos no mês). Desmarcado, os valores ficam como estão.</div>
+    {% else %}
+    <div class="ajuda">Negativo = saída, positivo = entrada.</div>
+    {% endif %}</div>
   <div><label>Início</label><input type="month" name="inicio" value="{{ (r.inicio if r else comp_hoje)|mes_input }}" required></div>
   <div><label>Fim (opcional)</label><input type="month" name="fim" value="{{ r.fim|mes_input if r and r.fim is not none else '' }}"></div>
   <div><label>Ordem no mês</label><input type="number" name="ordem" min="0" max="9999" value="{{ r.ordem if r else proxima_ordem }}" required>
@@ -39,5 +45,13 @@
 
   controle.addEventListener("change", () => { if (destino.value === "") preencher(); });
   valor.addEventListener("input", preencher);
+
+  // Edição: valores só podem ser mudados com "Alterar o valor" marcado.
+  const alterar = form.querySelector(".alterar-valor");
+  if (alterar) {
+    const aplicar = () => { valor.disabled = destino.disabled = !alterar.checked; };
+    alterar.addEventListener("change", aplicar);
+    aplicar();
+  }
 })();
 </script>

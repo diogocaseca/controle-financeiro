@@ -137,7 +137,8 @@ def test_fixo_no_cartao_preserva_mes_travado(cliente):
         db.commit()
 
     r = cliente.post("/recorrentes/1", data={"descricao": "Streaming", "conta_id": "2", "valor": "-40",
-                                             "inicio": "2026-10", "aplicar_de": "2026-10"}, follow_redirects=False)
+                                             "inicio": "2026-10", "aplicar_de": "2026-10", "alterar_valor": "1"},
+                     follow_redirects=False)
     assert "travada%20n%C3%A3o%20foram%20alterados" in r.headers["location"]
     with banco.SessionLocal() as db:
         valores = {l.comp: l.valor for l in db.scalars(select(Lancamento).where(Lancamento.recorrente_id == 1))}

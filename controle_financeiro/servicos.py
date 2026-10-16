@@ -126,12 +126,14 @@ def _aplicar_recorrente(db: Session, r: Recorrente, comp: int, confirmado: bool 
         ))
 
 
-def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> set[int]:
-    """Refaz os lançamentos do recorrente nos meses já gerados a partir de `a_partir`.
+def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int, sobrescrever_valores: bool = True) -> set[int]:
+    """Aplica o recorrente nos meses já gerados a partir de `a_partir`.
 
-    Alterações manuais feitas nesses meses (para esse recorrente) são substituídas;
-    meses anteriores ficam como estão.
-    Meses com a fatura do cartão travada não são alterados. Devolve esses meses.
+    Com `sobrescrever_valores`, refaz os lançamentos: ajustes manuais nesses meses são
+    substituídos. Sem ele, os valores de cada mês ficam como estão e só o resto
+    (descrição, conta, verba, ordem, meses ativos, controle) é atualizado.
+    Meses anteriores e meses com a fatura do cartão travada não são alterados.
+    Devolve os meses travados.
     """
     db.flush()
     existentes = db.scalars(select(Lancamento).where(
@@ -141,6 +143,9 @@ def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> set[int
     protegidos = {l.comp for l in existentes if esta_travada(db, l.conta_id, l.comp)}
     if r.conta_id:
         protegidos |= {c for c in meses if esta_travada(db, r.conta_id, c)}
+    if not sobrescrever_valores:
+        _atualizar_preservando_valores(db, r, existentes, meses, protegidos)
+        return protegidos
     db.execute(delete(Lancamento).where(Lancamento.recorrente_id == r.id, Lancamento.comp >= a_partir,
                                         Lancamento.comp.not_in(protegidos)))
     db.execute(delete(Movimento).where(Movimento.recorrente_id == r.id, Movimento.comp >= a_partir,
@@ -149,6 +154,34 @@ def sincronizar_recorrente(db: Session, r: Recorrente, a_partir: int) -> set[int
         if r.ativa_em(c) and c not in protegidos:
             _aplicar_recorrente(db, r, c, confirmado=c in confirmados)
     return protegidos
+
+
+def _atualizar_preservando_valores(db: Session, r: Recorrente, existentes, meses, protegidos: set[int]) -> None:
+    lancs = {l.comp: l for l in existentes}
+    movs = {m.comp: m for m in db.scalars(select(Movimento).where(
+        Movimento.recorrente_id == r.id, Movimento.comp >= min(meses, default=0)))}
+    for c in meses:
+        if c in protegidos:
+            continue
+        ativo = r.ativa_em(c)
+        l = lancs.get(c)
+        if r.conta_id and ativo:
+            if l:
+                l.conta_id, l.descricao, l.eh_verba, l.ordem = r.conta_id, r.descricao, r.verba, r.ordem
+            else:
+                db.add(Lancamento(conta_id=r.conta_id, comp=c, descricao=r.descricao, valor=r.valor,
+                                  valor_expr=r.valor_expr, recorrente_id=r.id, eh_verba=r.verba, ordem=r.ordem))
+        elif l:
+            db.delete(l)
+        m = movs.get(c)
+        if r.controle_id and ativo and (m or r.controle_valor):
+            if m:
+                m.controle_id, m.descricao = r.controle_id, r.descricao
+            else:
+                db.add(Movimento(controle_id=r.controle_id, comp=c, descricao=r.descricao,
+                                 valor=r.controle_valor, valor_expr=r.controle_expr, recorrente_id=r.id))
+        elif m:
+            db.delete(m)
 
 
 def encerrar_recorrente(db: Session, r: Recorrente, a_partir: int) -> None:
