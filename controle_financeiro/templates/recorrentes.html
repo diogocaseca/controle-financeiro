@@ -4,6 +4,15 @@
 {% block conteudo %}
 <div class="cabecalho"><div><h1>Fixos do mês</h1><div class="sub">Salário, contas fixas e verbas. São lançados automaticamente em cada mês novo.</div></div></div>
 
+<section class="card" style="margin-bottom:16px">
+  <h2>Novo fixo</h2>
+  <form method="post" action="{{ base }}/recorrentes">
+    {% set r = none %}
+    {% include "_form_recorrente.html" %}
+    <button>Adicionar</button>
+  </form>
+</section>
+
 <section class="card">
   <table>
     <thead><tr><th>Descrição</th><th class="esconde-m">Conta</th><th class="num">Valor</th><th class="esconde-m">Controle</th><th class="esconde-m">Período</th><th></th></tr></thead>
@@ -28,15 +37,6 @@
     {% endif %}
     </tbody>
   </table>
-</section>
-
-<section class="card" style="margin-top:16px">
-  <h2>Novo fixo</h2>
-  <form method="post" action="{{ base }}/recorrentes">
-    {% set r = none %}
-    {% include "_form_recorrente.html" %}
-    <button>Adicionar</button>
-  </form>
 </section>
 
 {% if encerrados %}

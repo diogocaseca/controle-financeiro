@@ -3,6 +3,15 @@
 {% set aba = 'ctl' %}
 {% block conteudo %}
 <div class="cabecalho"><div><h1>Dívidas &amp; poupanças</h1><div class="sub">Saldos acompanhados mês a mês: acerto com a Fabiane, empréstimos, compra da casa…</div></div></div>
+<section class="card" style="margin-bottom:16px">
+  <h2>Novo controle</h2>
+  <form method="post" action="{{ base }}/controles" class="linha-form">
+    <input name="nome" placeholder="Nome (ex.: Fabiane, Pai, Compra da casa)" required class="larga">
+    <select name="grupo"><option value="divida">Dívida/acerto</option><option value="poupanca">Poupança/empréstimo</option></select>
+    <input name="descricao" placeholder="Observação (opcional)">
+    <button style="flex:0 0 auto">Criar</button>
+  </form>
+</section>
 <section class="card">
   <table>
     <thead><tr><th>Nome</th><th class="esconde-m">Tipo</th><th class="num">Saldo atual</th></tr></thead>
@@ -18,14 +27,5 @@
     {% endfor %}
     </tbody>
   </table>
-</section>
-<section class="card" style="margin-top:16px">
-  <h2>Novo controle</h2>
-  <form method="post" action="{{ base }}/controles" class="linha-form">
-    <input name="nome" placeholder="Nome (ex.: Fabiane, Pai, Compra da casa)" required class="larga">
-    <select name="grupo"><option value="divida">Dívida/acerto</option><option value="poupanca">Poupança/empréstimo</option></select>
-    <input name="descricao" placeholder="Observação (opcional)">
-    <button style="flex:0 0 auto">Criar</button>
-  </form>
 </section>
 {% endblock %}

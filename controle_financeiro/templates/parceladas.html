@@ -23,17 +23,17 @@
 </table>
 {% endmacro %}
 
-<section class="card">
-  {% if andamento %}{{ tabela(andamento) }}{% else %}<div class="vazio">Nenhuma compra parcelada em andamento.</div>{% endif %}
-</section>
-
-<section class="card" style="margin-top:16px">
+<section class="card" style="margin-bottom:16px">
   <h2>Nova compra parcelada</h2>
   <form method="post" action="{{ base }}/parceladas">
     {% set p = none %}
     {% include "_form_parcelada.html" %}
     <p><button>Lançar parcelas</button></p>
   </form>
+</section>
+
+<section class="card">
+  {% if andamento %}{{ tabela(andamento) }}{% else %}<div class="vazio">Nenhuma compra parcelada em andamento.</div>{% endif %}
 </section>
 
 {% if quitadas %}
