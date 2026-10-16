@@ -1,14 +1,14 @@
 :root {
   --bg: #f5f6f8; --surface: #ffffff; --surface-2: #f0f2f5; --border: #e2e5ea;
   --text: #1c2230; --muted: #667085; --accent: #6d28d9; --accent-soft: #ede9fe;
-  --pos: #15803d; --neg: #b91c1c; --ok: #16a34a; --ok-bg: #dcfce7; --warn-bg: #fff7e6; --warn: #9a6700;
+  --pos: #15803d; --neg: #b91c1c; --ok: #16a34a; --ok-bg: #dcfce7; --agora: #c2410c; --warn-bg: #fff7e6; --warn: #9a6700;
   --radius: 10px; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1117; --surface: #171a23; --surface-2: #1e2230; --border: #2a2f3d;
     --text: #e6e8ee; --muted: #9aa3b5; --accent: #a78bfa; --accent-soft: #2a2145;
-    --pos: #4ade80; --neg: #f87171; --ok: #22c55e; --ok-bg: #14532d; --warn-bg: #2b2412; --warn: #f5c451;
+    --pos: #4ade80; --neg: #f87171; --ok: #22c55e; --ok-bg: #14532d; --agora: #fb923c; --warn-bg: #2b2412; --warn: #f5c451;
     --shadow: none;
   }
 }
@@ -38,6 +38,41 @@ h2 { font-size: 16px; margin: 0 0 12px; }
 .cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
 .navmes { display: flex; align-items: center; gap: 8px; }
 .navmes h1 { min-width: 180px; text-align: center; }
+
+/* barra de tempo (estilo Home Assistant) */
+.barra-tempo {
+  position: sticky; top: 62px; z-index: 4; display: flex; align-items: center; gap: 4px;
+  width: fit-content; max-width: 100%; margin: 0 0 18px; padding: 6px 6px 6px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(16, 24, 40, .12);
+}
+.barra-tempo svg { width: 22px; height: 22px; fill: currentColor; flex: none; }
+.bt-data { display: flex; align-items: center; gap: 10px; margin: 0 8px 0 0; cursor: pointer; color: var(--text); position: relative; }
+.bt-data h1 { font-size: 17px; font-weight: 600; white-space: nowrap; }
+.bt-data input { position: absolute; inset: 0; opacity: 0; pointer-events: none; width: 100%; }
+.bt-agora {
+  padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap;
+  color: var(--agora); border: 1px solid color-mix(in srgb, var(--agora) 45%, transparent);
+}
+.bt-agora.ativo { background: color-mix(in srgb, var(--agora) 22%, transparent); border-color: transparent; }
+.bt-agora:hover { text-decoration: none; background: color-mix(in srgb, var(--agora) 30%, transparent); }
+.bt-icone {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px;
+  border-radius: 999px; color: var(--text); cursor: pointer; list-style: none;
+}
+.bt-icone:hover { background: var(--surface-2); text-decoration: none; }
+.bt-menu { position: relative; }
+.bt-menu summary::-webkit-details-marker { display: none; }
+.bt-opcoes {
+  position: absolute; right: 0; top: calc(100% + 6px); min-width: 200px; padding: 6px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(16, 24, 40, .18);
+  display: flex; flex-direction: column;
+}
+.bt-opcoes a, .bt-opcoes button {
+  display: block; text-align: left; padding: 8px 10px; border-radius: 6px; color: var(--text);
+  background: none; border: none; font: inherit; font-weight: 400; cursor: pointer;
+}
+.bt-opcoes a:hover, .bt-opcoes button:hover { background: var(--surface-2); text-decoration: none; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
 .grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; align-items: start; }
@@ -123,6 +158,10 @@ details summary { cursor: pointer; color: var(--muted); }
 @media (max-width: 640px) {
   .marca { display: none; }
   .navmes h1 { min-width: 0; font-size: 18px; }
+  .barra-tempo { padding-left: 10px; }
+  .bt-data { gap: 6px; margin-right: 2px; }
+  .bt-data h1 { font-size: 15px; }
+  .bt-icone { width: 32px; height: 32px; }
   .grade { grid-template-columns: 1fr; }
   td, th { padding: 7px 4px; }
   .esconde-m { display: none; }
