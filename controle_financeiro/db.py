@@ -34,6 +34,7 @@ def iniciar(url: str | None = None) -> Engine:
     SessionLocal.configure(bind=engine)
     Base.metadata.create_all(engine)
     _migrar(engine)
+    _numerar_fixos(engine)
     with SessionLocal() as db:
         _semear(db)
     return engine
@@ -58,6 +59,18 @@ def _migrar(engine: Engine) -> None:
             existentes = {linha[1] for linha in conn.exec_driver_sql(f"PRAGMA table_info({tabela})")}
             if coluna not in existentes:
                 conn.exec_driver_sql(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {ddl}")
+
+
+def _numerar_fixos(engine: Engine) -> None:
+    """Fixos criados antes do campo "Ordem no mês" têm todos ordem 0: numera 1, 2, 3…
+    na ordem de criação (a mesma em que já apareciam). Só roda enquanto todos forem 0."""
+    with engine.begin() as conn:
+        ids = [r[0] for r in conn.exec_driver_sql("SELECT id FROM recorrentes ORDER BY id")]
+        if len(ids) < 2 or conn.exec_driver_sql("SELECT COUNT(*) FROM recorrentes WHERE ordem != 0").scalar():
+            return
+        for n, rid in enumerate(ids, start=1):
+            conn.exec_driver_sql("UPDATE recorrentes SET ordem = ? WHERE id = ?", (n, rid))
+            conn.exec_driver_sql("UPDATE lancamentos SET ordem = ? WHERE recorrente_id = ?", (n, rid))
 
 
 def get_db():

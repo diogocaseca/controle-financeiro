@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, Upload
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -361,7 +361,12 @@ def listar_recorrentes(request: Request, _u: Usuario = Logado, db: Session = Dep
         encerrados=[r for r in todos if r.fim is not None and r.fim < hoje],
         contas=db.scalars(select(Conta).where(Conta.ativa).order_by(Conta.ordem)).all(),
         controles=db.scalars(select(Controle).where(Controle.ativo).order_by(Controle.nome)).all(),
+        proxima_ordem=_proxima_ordem(db),
     )
+
+
+def _proxima_ordem(db: Session) -> int:
+    return (db.scalar(select(func.max(Recorrente.ordem))) or 0) + 1
 
 
 @app.get("/recorrentes/{rid}")
@@ -376,7 +381,11 @@ def editar_recorrente_form(request: Request, rid: int, _u: Usuario = Logado, db:
     )
 
 
-def _preencher_recorrente(r: Recorrente, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor):
+def _preencher_recorrente(r: Recorrente, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor,
+                          ordem: int = 0):
+    if not 0 <= ordem <= 9999:
+        raise ExpressaoInvalida("a ordem deve ser entre 0 e 9999")
+    r.ordem = ordem
     r.descricao = descricao.strip()
     r.conta_id = int(conta_id) if conta_id else None
     r.valor_expr = valor.strip() if r.conta_id else ""
@@ -397,11 +406,12 @@ def _preencher_recorrente(r: Recorrente, descricao, conta_id, valor, verba, inic
 def criar_recorrente(
     request: Request, descricao: str = Form(...), conta_id: str = Form(""), valor: str = Form(""),
     verba: str = Form(""), inicio: str = Form(...), fim: str = Form(""),
-    controle_id: str = Form(""), controle_valor: str = Form(""),
+    controle_id: str = Form(""), controle_valor: str = Form(""), ordem: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     r = Recorrente()
-    _preencher_recorrente(r, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor)
+    _preencher_recorrente(r, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor,
+                          int(ordem) if ordem.strip() else _proxima_ordem(db))
     db.add(r)
     db.flush()
     servicos.sincronizar_recorrente(db, r, r.inicio)
@@ -414,10 +424,14 @@ def editar_recorrente(
     request: Request, rid: int, descricao: str = Form(...), conta_id: str = Form(""), valor: str = Form(""),
     verba: str = Form(""), inicio: str = Form(...), fim: str = Form(""),
     controle_id: str = Form(""), controle_valor: str = Form(""), aplicar_de: str = Form(...),
+    ordem: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     r = db.get(Recorrente, rid) or _404()
-    _preencher_recorrente(r, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor)
+    _preencher_recorrente(r, descricao, conta_id, valor, verba, inicio, fim, controle_id, controle_valor,
+                          int(ordem) if ordem.strip() else r.ordem)
+    # A ordem é só exibição: vale para todos os meses, inclusive passados e travados.
+    db.execute(update(Lancamento).where(Lancamento.recorrente_id == r.id).values(ordem=r.ordem))
     preservados = servicos.sincronizar_recorrente(db, r, comp_de(aplicar_de))
     db.commit()
     msg = f"“{r.descricao}” atualizado."

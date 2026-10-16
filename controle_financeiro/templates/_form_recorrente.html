@@ -8,6 +8,8 @@
     <div class="ajuda">Negativo = saída, positivo = entrada.</div></div>
   <div><label>Início</label><input type="month" name="inicio" value="{{ (r.inicio if r else comp_hoje)|mes_input }}" required></div>
   <div><label>Fim (opcional)</label><input type="month" name="fim" value="{{ r.fim|mes_input if r and r.fim is not none else '' }}"></div>
+  <div><label>Ordem no mês</label><input type="number" name="ordem" min="0" max="9999" value="{{ r.ordem if r else proxima_ordem }}" required>
+    <div class="ajuda">Posição nas tabelas do mês: fixos ficam no topo, do menor para o maior número.</div></div>
 </div>
 <p><label style="display:inline-flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" name="verba" value="1" {{ 'checked' if r and r.verba }}> É uma verba (orçamento)</label>
   <span class="ajuda">— gastos no cartão marcados com esta verba são descontados dela, como “Limpeza” − Hortifruti na planilha. Com valor 0, vira reembolso: o gasto no cartão volta como entrada (ex.: assinaturas pagas pela empresa).</span></p>

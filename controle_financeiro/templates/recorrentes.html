@@ -15,10 +15,11 @@
 
 <section class="card">
   <table>
-    <thead><tr><th>Descrição</th><th class="esconde-m">Conta</th><th class="num">Valor</th><th class="esconde-m">Controle</th><th class="esconde-m">Período</th><th></th></tr></thead>
+    <thead><tr><th class="num" title="Ordem no mês">#</th><th>Descrição</th><th class="esconde-m">Conta</th><th class="num">Valor</th><th class="esconde-m">Controle</th><th class="esconde-m">Período</th><th></th></tr></thead>
     <tbody>
     {% for r in ativos %}
       <tr>
+        <td class="num sub">{{ r.ordem }}</td>
         <td><a href="{{ base }}/recorrentes/{{ r.id }}">{{ r.descricao }}</a>{% if r.verba %}<span class="tag">verba</span>{% endif %}
           {% if r.valor_expr|eh_expr %}<div class="expr">= {{ r.valor_expr }}</div>{% endif %}</td>
         <td class="esconde-m">{{ r.conta.nome if r.conta else '—' }}</td>
@@ -29,11 +30,11 @@
           <form class="inline" method="post" action="{{ base }}/recorrentes/{{ r.id }}/excluir" onsubmit="return confirm('Excluir “{{ r.descricao }}” e todos os seus lançamentos em todos os meses? Para manter o histórico, use Encerrar na edição do fixo.')"><button class="link" title="Excluir">✕</button></form></td>
       </tr>
     {% else %}
-      <tr><td colspan="6" class="vazio">Nenhum fixo ainda. Cadastre salário e contas abaixo.</td></tr>
+      <tr><td colspan="7" class="vazio">Nenhum fixo ainda. Cadastre salário e contas acima.</td></tr>
     {% endfor %}
     {% if ativos %}
       {% set total = ativos|selectattr('conta_id')|map(attribute='valor')|sum %}
-      <tr class="total"><td>Total mensal</td><td class="esconde-m"></td><td class="num">{{ valor(total) }}</td><td colspan="2" class="esconde-m"></td><td></td></tr>
+      <tr class="total"><td></td><td>Total mensal</td><td class="esconde-m"></td><td class="num">{{ valor(total) }}</td><td colspan="2" class="esconde-m"></td><td></td></tr>
     {% endif %}
     </tbody>
   </table>

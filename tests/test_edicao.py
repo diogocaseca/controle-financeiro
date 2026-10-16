@@ -154,3 +154,43 @@ def test_parcela_so_se_altera_pela_compra(cliente):
     cliente.post(f"/lancamentos/{aid}", data={"descricao": "Avulso", "valor": "-7", "conta_id": 1})
     with banco.SessionLocal() as db:
         assert db.get(Lancamento, aid).valor == -700
+
+
+def test_ordem_dos_fixos_no_mes(cliente):
+    cliente.get("/mes/2026/10")
+    assert 'name="ordem" min="0" max="9999" value="1"' in cliente.get("/recorrentes").text  # próxima ordem
+    cliente.post("/recorrentes", data={"descricao": "Luz", "conta_id": "1", "valor": "-200", "inicio": "2026-10"})
+    cliente.post("/recorrentes", data={"descricao": "Salário", "conta_id": "1", "valor": "10000", "inicio": "2026-10"})
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 1, "descricao": "Avulso", "valor": "-5"})
+
+    def ordem_no_mes():
+        texto = cliente.get("/mes/2026/10").text
+        return sorted(["Luz", "Salário", "Avulso"], key=texto.index)
+
+    assert ordem_no_mes() == ["Luz", "Salário", "Avulso"]
+
+    # Salário para o topo; avulso continua abaixo dos fixos mesmo com ordem alta
+    cliente.post("/recorrentes/2", data={"descricao": "Salário", "conta_id": "1", "valor": "10000", "inicio": "2026-10",
+                                         "aplicar_de": "2026-11", "ordem": "0"})
+    cliente.post("/recorrentes/1", data={"descricao": "Luz", "conta_id": "1", "valor": "-200", "inicio": "2026-10",
+                                         "aplicar_de": "2026-11", "ordem": "500"})
+    assert ordem_no_mes() == ["Salário", "Luz", "Avulso"]  # vale também para outubro (antes de aplicar_de)
+
+
+def test_numera_fixos_antigos_uma_vez(tmp_path):
+    from controle_financeiro.models import Recorrente
+
+    url = f"sqlite:///{tmp_path / 'f.db'}"
+    banco.iniciar(url)
+    with banco.SessionLocal() as db:
+        for nome in ("A", "B", "C"):
+            db.add(Recorrente(descricao=nome, conta_id=1, valor=-1, inicio=24321, ordem=0))
+        db.commit()
+    banco.iniciar(url)
+    with banco.SessionLocal() as db:
+        assert [r.ordem for r in db.query(Recorrente).order_by(Recorrente.id)] == [1, 2, 3]
+        db.query(Recorrente).filter(Recorrente.descricao == "C").one().ordem = 0
+        db.commit()
+    banco.iniciar(url)  # já numerados: não mexe de novo
+    with banco.SessionLocal() as db:
+        assert [r.ordem for r in db.query(Recorrente).order_by(Recorrente.id)] == [1, 2, 0]

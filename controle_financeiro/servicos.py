@@ -261,7 +261,9 @@ def _contas(db: Session) -> list[Conta]:
 
 def _lancamentos(db: Session, comp: int) -> dict[int, list[Lancamento]]:
     por_conta: dict[int, list[Lancamento]] = defaultdict(list)
-    q = select(Lancamento).where(Lancamento.comp == comp).order_by(Lancamento.ordem, Lancamento.id)
+    # Fixos sempre no topo (na ordem definida no fixo); avulsos e parcelas abaixo.
+    q = select(Lancamento).where(Lancamento.comp == comp).order_by(
+        Lancamento.recorrente_id.is_(None), Lancamento.ordem, Lancamento.id)
     for l in db.scalars(q):
         por_conta[l.conta_id].append(l)
     return por_conta
