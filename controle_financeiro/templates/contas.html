@@ -3,7 +3,7 @@
 {% block conteudo %}
 <div class="cabecalho"><div><h1>Contas</h1><div class="sub">A fatura de cada cartão entra como uma linha na conta corrente que a paga. “Marcação ✓” liga o botão de confirmado nos lançamentos da conta; a linha da fatura segue a conta que a paga. “Fecha dia” (cartões): a partir desse dia a fatura do mês trava, evitando lançar no mês errado; dá para destravar no próprio mês.</div></div></div>
 <div class="pilha">
-{% for c in contas + [none] %}
+{% for c in [none] + contas %}
 <section class="card">
   <h2>{{ c.nome if c else 'Nova conta' }}</h2>
   <form method="post" action="{{ base }}/contas" class="linha-form" style="margin:0;align-items:end">
