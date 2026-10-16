@@ -14,3 +14,30 @@
   <button type="button" class="link secao-mostrar" hidden>Mostrar {{ titulo|lower }} ({{ n }})</button>
 </div>
 {%- endmacro %}
+
+{# Barra de tempo flutuante (estilo Home Assistant), usada nas visões de mês e ano.
+   destino: "mes" ou "ano" — para onde o seletor leva. opcoes: lista de (rótulo, url). #}
+{% macro barra_tempo(titulo, valor_mes, destino, atual, url_agora, url_ant, url_prox, rotulo_ant, rotulo_prox, opcoes, texto_escolher) -%}
+<nav class="barra-tempo" aria-label="Navegação no tempo">
+  <label class="bt-data" title="{{ texto_escolher }}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 16H5V10h14v10Zm0-12H5V6h14v2Zm-7 5h5v5h-5v-5Z"/></svg>
+    <h1>{{ titulo }}</h1>
+    <input type="month" class="bt-escolher" value="{{ valor_mes }}" data-destino="{{ destino }}" data-base="{{ base }}" aria-label="{{ texto_escolher }}">
+  </label>
+  <a class="bt-agora {{ 'ativo' if atual }}" href="{{ url_agora }}" {{ 'aria-current=true' if atual }}
+     title="{{ 'Você está no período atual' if atual else 'Ir para o período atual' }}">Agora</a>
+  <a class="bt-icone" href="{{ url_ant }}" title="{{ rotulo_ant }}" aria-label="{{ rotulo_ant }}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z"/></svg></a>
+  <a class="bt-icone" href="{{ url_prox }}" title="{{ rotulo_prox }}" aria-label="{{ rotulo_prox }}">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z"/></svg></a>
+  <details class="bt-menu">
+    <summary class="bt-icone" title="Mais opções" aria-label="Mais opções">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>
+    </summary>
+    <div class="bt-opcoes">
+      <button type="button" class="bt-abrir-escolha">{{ texto_escolher }}…</button>
+      {% for rotulo, url in opcoes %}<a href="{{ url }}">{{ rotulo }}</a>{% endfor %}
+    </div>
+  </details>
+</nav>
+{%- endmacro %}

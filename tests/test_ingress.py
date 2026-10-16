@@ -54,3 +54,13 @@ def test_formulario_pelo_ingress(cliente):
     assert r.headers["location"] == "/api/hassio_ingress/abc/"
     r = cliente.get("/recorrentes", headers=INGRESS)
     assert r.status_code == 200 and "Fixos do mês" in r.text
+
+
+def test_barra_de_tempo_usa_prefixo_do_ingress(cliente, monkeypatch):
+    monkeypatch.setattr(config, "LOGIN_VIA_INGRESS", False)
+    for url in ("/mes/2026/10", "/ano/2026"):
+        r = cliente.get(url, headers=INGRESS)
+        assert 'class="barra-tempo"' in r.text
+        assert 'data-base="/api/hassio_ingress/abc"' in r.text
+    r = cliente.get("/ano/2026", headers=INGRESS)
+    assert 'data-destino="ano"' in r.text and 'href="/api/hassio_ingress/abc/ano/2025"' in r.text

@@ -66,3 +66,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+
+// Barra de tempo: seletor de mês/ano e menu ⋮.
+document.addEventListener("DOMContentLoaded", () => {
+  const barra = document.querySelector(".barra-tempo");
+  if (!barra) return;
+  const input = barra.querySelector(".bt-escolher"), menu = barra.querySelector(".bt-menu");
+  const abrir = () => { try { input.showPicker(); } catch { input.focus(); input.click(); } };
+  input.closest("label").addEventListener("click", (ev) => { if (ev.target !== input) { ev.preventDefault(); abrir(); } });
+  barra.querySelector(".bt-abrir-escolha").addEventListener("click", () => { menu.open = false; abrir(); });
+  input.addEventListener("change", () => {
+    const [a, m] = input.value.split("-");
+    if (!a || !m) return;
+    const base = input.dataset.base;
+    location.href = input.dataset.destino === "ano" ? `${base}/ano/${+a}` : `${base}/mes/${+a}/${+m}`;
+  });
+  document.addEventListener("click", (ev) => { if (menu.open && !menu.contains(ev.target)) menu.open = false; });
+});

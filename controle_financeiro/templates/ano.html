@@ -1,16 +1,13 @@
 {% extends "base.html" %}
-{% from "_macros.html" import valor %}
+{% from "_macros.html" import valor, barra_tempo with context %}
 {% set aba = 'ano' %}
 {% set ano_atual = ano %}
 {% block titulo %}{{ ano }} · Finanças{% endblock %}
 {% block conteudo %}
-<div class="cabecalho">
-  <div class="navmes">
-    <a class="botao sec" href="{{ base }}/ano/{{ ano - 1 }}">←</a>
-    <h1>{{ ano }}</h1>
-    <a class="botao sec" href="{{ base }}/ano/{{ ano + 1 }}">→</a>
-  </div>
-</div>
+{% set ah, mh = ano_mes(comp_hoje) %}
+{{ barra_tempo(ano, "%04d-%02d"|format(ano, mh), "ano", ano == ah, base ~ "/ano/" ~ ah,
+               base ~ "/ano/" ~ (ano - 1), base ~ "/ano/" ~ (ano + 1), "Ano anterior", "Próximo ano",
+               [("Ver o mês atual", base ~ "/"), ("Ir para o ano atual", base ~ "/ano/" ~ ah)], "Escolher ano") }}
 <section class="card" style="overflow-x:auto">
   <table>
     <thead><tr><th>Mês</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Fatura</th><th class="num">Saldo</th></tr></thead>
