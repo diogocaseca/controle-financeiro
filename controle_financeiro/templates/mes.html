@@ -46,7 +46,8 @@
 
 {% macro linha(ln, travado=False) %}
 {% set l = ln.lancamento %}
-<tr>
+{% set grupo = l.recorrente_id if l.eh_verba else l.verba_id %}
+<tr{% if grupo %} class="grupo-verba" data-verba="{{ grupo }}" title="Clique para destacar a verba e os descontos dela"{% endif %}>
   <td>
     {% if l.parcelada_id %}<a href="{{ base }}/parceladas/{{ l.parcelada_id }}" style="color:inherit" title="Abrir a compra em Parcelados">{{ l.descricao }}</a>
     {% elif travado %}{{ l.descricao }}{% else %}<a href="{{ base }}/lancamentos/{{ l.id }}" style="color:inherit">{{ l.descricao }}</a>{% endif %}

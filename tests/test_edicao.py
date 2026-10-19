@@ -241,3 +241,12 @@ def test_editar_fixo_sem_alterar_valor_preserva_meses(cliente):
     with banco.SessionLocal() as db:
         assert {l.comp: l.valor for l in db.scalars(select(Lancamento))} == {24321: -10000, 24322: -8000}
         assert {m.comp: m.valor for m in db.scalars(select(Movimento))} == {24321: 10000, 24322: 8000}
+
+
+def test_linhas_da_verba_marcadas_para_destaque(cliente):
+    cliente.get("/mes/2026/10")
+    cliente.post("/recorrentes", data={"descricao": "Limpeza", "conta_id": "1", "valor": "-600", "verba": "1", "inicio": "2026-10"})
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 2, "descricao": "Hortifruti", "valor": "-50", "verba_id": "1"})
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 2, "descricao": "Uber", "valor": "-20"})
+    r = cliente.get("/mes/2026/10").text
+    assert r.count('class="grupo-verba" data-verba="1"') == 2  # a verba e o Hortifruti; o Uber não

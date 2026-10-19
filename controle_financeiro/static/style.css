@@ -93,6 +93,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-sp
 tr.total td { font-weight: 700; border-bottom: none; border-top: 2px solid var(--border); }
 tr.sutil td { color: var(--muted); }
 tbody tr:hover td { background: var(--surface-2); }
+tr.grupo-verba { cursor: pointer; }
+tr.destaque td, tr.destaque:hover td { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+tr.destaque td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 .pos { color: var(--pos); } .neg { color: var(--neg); }
 .tag { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); margin-left: 6px; vertical-align: 1px; white-space: nowrap; }
 .tag.cinza { background: var(--surface-2); color: var(--muted); }

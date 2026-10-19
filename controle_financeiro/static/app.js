@@ -140,3 +140,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (ev.key === "Escape") for (const d of document.querySelectorAll(".dica.aberta")) d.classList.remove("aberta");
   });
 });
+
+// Mês: clicar numa verba (ou num gasto que desconta dela) destaca a verba e todos
+// os descontos dela. Clicar de novo, fora ou Esc limpa.
+(() => {
+  const limpar = () => document.querySelectorAll("tr.destaque").forEach((tr) => tr.classList.remove("destaque"));
+  document.addEventListener("click", (ev) => {
+    const tr = ev.target.closest("tr.grupo-verba");
+    if (tr && ev.target.closest("a, button, form, input, select, .dica")) return;  // ações da linha
+    const ativo = tr && tr.classList.contains("destaque");
+    limpar();
+    if (!tr || ativo) return;
+    document.querySelectorAll(`tr.grupo-verba[data-verba="${tr.dataset.verba}"]`)
+      .forEach((linha) => linha.classList.add("destaque"));
+  });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") limpar(); });
+})();
