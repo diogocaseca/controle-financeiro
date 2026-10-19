@@ -250,3 +250,14 @@ def test_linhas_da_verba_marcadas_para_destaque(cliente):
     cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 2, "descricao": "Uber", "valor": "-20"})
     r = cliente.get("/mes/2026/10").text
     assert r.count('class="grupo-verba" data-verba="1"') == 2  # a verba e o Hortifruti; o Uber não
+
+
+def test_verba_de_reembolso_sem_a_receber(cliente):
+    cliente.get("/mes/2026/10")
+    cliente.post("/recorrentes", data={"descricao": "DAL", "conta_id": "1", "valor": "0", "verba": "1", "inicio": "2026-10"})
+    cliente.post("/recorrentes", data={"descricao": "Limpeza", "conta_id": "1", "valor": "-100", "verba": "1", "inicio": "2026-10"})
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 2, "descricao": "Assinatura", "valor": "-723,37", "verba_id": "1"})
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 2, "descricao": "Mercado", "valor": "-150", "verba_id": "2"})
+    r = cliente.get("/mes/2026/10").text
+    assert "já gasto no cartão -723,37</div>" in r  # reembolso: sem "a receber"
+    assert "· a receber 50,00" in r  # verba estourada continua mostrando
