@@ -67,7 +67,7 @@
     {{ botao_ok(base ~ '/lancamentos/' ~ l.id ~ '/confirmar', l.confirmado, l.descricao, usa_ok) }}
     {% if not travado and not l.parcelada_id %}
     <a href="{{ base }}/lancamentos/{{ l.id }}" title="Editar" class="editar">✎</a>
-    <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?')">
+    <form class="inline" method="post" action="{{ base }}/lancamentos/{{ l.id }}/excluir" onsubmit="return confirm('Excluir “{{ l.descricao }}” deste mês?{% if l.recorrente and l.recorrente.controle_id %} A parte em {{ l.recorrente.controle.nome }} deste mês também será excluída.{% endif %}')">
       <button class="link" title="Excluir">✕</button>
     </form>
     {% endif %}

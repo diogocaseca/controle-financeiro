@@ -265,6 +265,7 @@ def editar_lancamento_form(request: Request, lid: int, _u: Usuario = Logado, db:
         return ir(request, f"/parceladas/{l.parcelada_id}")
     return render(
         request, "lancamento.html", l=l, verbas=servicos.verbas_do_mes(db, l.comp),
+        mov=_movimento_do_mes(db, l),
         travado=servicos.esta_travada(db, l.conta_id, l.comp),
         contas=db.scalars(select(Conta).order_by(Conta.ordem)).all(),
     )
@@ -274,10 +275,14 @@ def editar_lancamento_form(request: Request, lid: int, _u: Usuario = Logado, db:
 def editar_lancamento(
     request: Request, lid: int, descricao: str = Form(...), valor: str = Form(...),
     conta_id: int = Form(...), verba_id: str = Form(""), verba_valor: str = Form(""), mes: str = Form(""),
+    controle_valor: str = Form(""),
     _u: Usuario = Logado, db: Session = Depends(banco.get_db),
 ):
     l = db.get(Lancamento, lid) or _404()
     _recusar_parcela(l)
+    mov = _movimento_do_mes(db, l)
+    if mov and controle_valor.strip():  # parte do fixo na dívida/poupança deste mês
+        mov.valor, mov.valor_expr = avaliar(controle_valor), controle_valor.strip()
     volta = l.comp
     novo_comp = comp_de(mes) if mes and not l.recorrente_id else l.comp
     servicos.exigir_destravada(db, l.conta_id, l.comp)
@@ -299,6 +304,9 @@ def excluir_lancamento(request: Request, lid: int, _u: Usuario = Logado, db: Ses
     _recusar_parcela(l)
     comp = l.comp
     servicos.exigir_destravada(db, l.conta_id, comp)
+    mov = _movimento_do_mes(db, l)
+    if mov:  # sem a conta no mês, também não há a parte dela na dívida
+        db.delete(mov)
     db.delete(l)
     db.commit()
     return _volta_mes(request, comp)
@@ -338,6 +346,13 @@ def alternar_trava(
     else:
         msg = f"Fatura de {nome_competencia(comp)} do {conta.nome} destravada até o fim do dia de hoje."
     return _volta_mes(request, comp, msg)
+
+
+def _movimento_do_mes(db: Session, l: Lancamento) -> Movimento | None:
+    """Movimento de dívida/poupança gerado pelo mesmo fixo no mesmo mês."""
+    if not l.recorrente_id:
+        return None
+    return db.scalar(select(Movimento).where(Movimento.recorrente_id == l.recorrente_id, Movimento.comp == l.comp))
 
 
 def _recusar_parcela(l: Lancamento) -> None:

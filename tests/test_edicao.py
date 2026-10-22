@@ -261,3 +261,37 @@ def test_verba_de_reembolso_sem_a_receber(cliente):
     r = cliente.get("/mes/2026/10").text
     assert "já gasto no cartão -723,37</div>" in r  # reembolso: sem "a receber"
     assert "· a receber 50,00" in r  # verba estourada continua mostrando
+
+
+def test_editar_fixo_no_mes_atualiza_divida(cliente):
+    from controle_financeiro.models import Movimento
+
+    cliente.get("/mes/2026/10")
+    cliente.post("/controles", data={"nome": "Fabiane"})
+    cliente.post("/recorrentes", data={"descricao": "TIM", "conta_id": "1", "valor": "-156,98/2", "inicio": "2026-10",
+                                       "controle_id": "1", "controle_valor": "78,49"})
+    with banco.SessionLocal() as db:
+        lid = db.scalar(select(Lancamento.id).where(Lancamento.recorrente_id == 1))
+
+    r = cliente.get(f"/lancamentos/{lid}")
+    assert 'name="controle_valor" value="78,49"' in r.text and "Valor lançado no controle (Fabiane)" in r.text
+
+    cliente.post(f"/lancamentos/{lid}", data={"descricao": "TIM", "valor": "-160/2", "conta_id": 1, "controle_valor": "80"})
+    with banco.SessionLocal() as db:
+        assert db.get(Lancamento, lid).valor == -8000
+        m = db.scalar(select(Movimento))
+        assert (m.valor, m.valor_expr) == (8000, "80")
+    assert "80,00" in cliente.get("/controles/1").text
+
+    # excluir o lançamento do mês remove também a parte na dívida
+    assert "A parte em Fabiane deste mês também será excluída" in cliente.get("/mes/2026/10").text
+    cliente.post(f"/lancamentos/{lid}/excluir")
+    with banco.SessionLocal() as db:
+        assert db.scalar(select(Movimento)) is None
+
+
+def test_lancamento_avulso_sem_campo_de_controle(cliente):
+    cliente.post("/lancamentos", data={"comp": 24321, "conta_id": 1, "descricao": "Avulso", "valor": "-5"})
+    with banco.SessionLocal() as db:
+        lid = db.scalar(select(Lancamento.id))
+    assert 'name="controle_valor"' not in cliente.get(f"/lancamentos/{lid}").text
