@@ -279,15 +279,15 @@ def test_editar_fixo_no_mes_atualiza_divida(cliente):
     cliente.post(f"/lancamentos/{lid}", data={"descricao": "TIM", "valor": "-160/2", "conta_id": 1, "controle_valor": "80"})
     with banco.SessionLocal() as db:
         assert db.get(Lancamento, lid).valor == -8000
-        m = db.scalar(select(Movimento))
+        m = db.scalar(select(Movimento).where(Movimento.comp == 24321))
         assert (m.valor, m.valor_expr) == (8000, "80")
     assert "80,00" in cliente.get("/controles/1").text
 
     # excluir o lançamento do mês remove também a parte na dívida
     assert "A parte em Fabiane deste mês também será excluída" in cliente.get("/mes/2026/10").text
     cliente.post(f"/lancamentos/{lid}/excluir")
-    with banco.SessionLocal() as db:
-        assert db.scalar(select(Movimento)) is None
+    with banco.SessionLocal() as db:  # só o de outubro (o login pode ter aberto o mês atual também)
+        assert db.scalar(select(Movimento).where(Movimento.comp == 24321)) is None
 
 
 def test_lancamento_avulso_sem_campo_de_controle(cliente):
@@ -295,3 +295,18 @@ def test_lancamento_avulso_sem_campo_de_controle(cliente):
     with banco.SessionLocal() as db:
         lid = db.scalar(select(Lancamento.id))
     assert 'name="controle_valor"' not in cliente.get(f"/lancamentos/{lid}").text
+
+
+def test_parcelado_novo_vem_com_mes_seguinte(cliente, monkeypatch):
+    from controle_financeiro import main
+
+    monkeypatch.setattr(main, "comp_hoje", lambda: 2026 * 12 + 10)  # novembro/2026
+    r = cliente.get("/parceladas").text
+    assert 'name="mes" value="2026-12"' in r  # dezembro
+    monkeypatch.setattr(main, "comp_hoje", lambda: 2026 * 12 + 11)  # dezembro → janeiro do ano seguinte
+    assert 'name="mes" value="2027-01"' in cliente.get("/parceladas").text
+
+    # edição mantém o mês da compra
+    cliente.post("/parceladas", data={"descricao": "TV", "conta_id": 2, "valor": "300", "parcelas": 3,
+                                      "mes": "2026-10", "parcela_no_mes": 1})
+    assert 'name="mes" value="2026-10"' in cliente.get("/parceladas/1").text
