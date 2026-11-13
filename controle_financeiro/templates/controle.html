@@ -16,18 +16,25 @@
       <button style="flex:0 0 auto">Adicionar</button>
     </form>
     <table>
-      <thead><tr><th>Mês</th><th>Descrição</th><th class="num">Valor</th><th class="num esconde-m">Saldo</th><th></th></tr></thead>
+      <thead><tr><th>Descrição</th><th class="num">Valor</th><th class="num esconde-m">Saldo</th><th></th></tr></thead>
       <tbody>
-      {% for m, acumulado in linhas %}
+      {% for mes in meses %}
+        <tr class="separador-mes">
+          <td colspan="4">
+            <span>{{ nome_comp(mes.comp) }}</span>
+            <span class="resumo-mes">no mês {{ valor(mes.total, True) }} · saldo {{ valor(mes.saldo) }}</span>
+          </td>
+        </tr>
+      {% for m, acumulado in mes.linhas %}
         <tr>
-          <td class="sub">{{ nome_comp(m.comp, True) }}</td>
           <td>{{ m.descricao }}{% if m.recorrente_id %}<span class="tag cinza">fixo</span>{% endif %}{% if m.valor_expr|eh_expr %}<div class="expr">= {{ m.valor_expr }}</div>{% endif %}</td>
           <td class="num">{{ valor(m.valor, True) }}</td>
           <td class="num esconde-m">{{ valor(acumulado) }}</td>
           <td class="acoes"><a href="{{ base }}/movimentos/{{ m.id }}" title="Editar" class="editar">✎</a> <form class="inline" method="post" action="{{ base }}/movimentos/{{ m.id }}/excluir" onsubmit="return confirm('Excluir movimento?')"><button class="link" title="Excluir">✕</button></form></td>
         </tr>
+      {% endfor %}
       {% else %}
-        <tr><td colspan="5" class="vazio">Sem movimentos.</td></tr>
+        <tr><td colspan="4" class="vazio">Sem movimentos.</td></tr>
       {% endfor %}
       </tbody>
     </table>

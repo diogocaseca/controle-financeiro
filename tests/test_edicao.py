@@ -310,3 +310,16 @@ def test_parcelado_novo_vem_com_mes_seguinte(cliente, monkeypatch):
     cliente.post("/parceladas", data={"descricao": "TV", "conta_id": 2, "valor": "300", "parcelas": 3,
                                       "mes": "2026-10", "parcela_no_mes": 1})
     assert 'name="mes" value="2026-10"' in cliente.get("/parceladas/1").text
+
+
+def test_controle_separado_por_mes(cliente):
+    cliente.post("/controles", data={"nome": "Fabiane"})
+    for mes, desc, v in [("2026-10", "TIM", "78,49"), ("2026-10", "Condomínio", "-999,25"),
+                         ("2026-11", "TIM", "78,49"), ("2026-12", "Pagamento", "1000")]:
+        cliente.post("/controles/1/movimentos", data={"mes": mes, "descricao": desc, "valor": v})
+    r = cliente.get("/controles/1").text
+    assert r.count('class="separador-mes"') == 3
+    # mais recente primeiro
+    assert r.index("Dezembro 2026") < r.index("Novembro 2026") < r.index("Outubro 2026")
+    assert 'no mês <span class="neg">-920,76</span> · saldo <span class="neg">-920,76</span>' in r  # outubro
+    assert 'no mês <span class="pos">+1.000,00</span> · saldo <span class="pos">157,73</span>' in r  # dezembro

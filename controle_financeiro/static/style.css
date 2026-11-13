@@ -90,6 +90,13 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.separador-mes td {
+  background: var(--surface-2); font-weight: 600; font-size: 13px; padding: 8px 10px;
+  border-top: 2px solid var(--border); border-bottom: 1px solid var(--border);
+}
+tr.separador-mes td { display: table-cell; }
+tr.separador-mes:hover td { background: var(--surface-2); }
+tr.separador-mes .resumo-mes { float: right; font-weight: 400; color: var(--muted); }
 tr.total td { font-weight: 700; border-bottom: none; border-top: 2px solid var(--border); }
 tr.sutil td { color: var(--muted); }
 tbody tr:hover td { background: var(--surface-2); }

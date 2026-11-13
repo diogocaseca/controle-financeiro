@@ -600,11 +600,18 @@ def criar_controle(
 @app.get("/controles/{cid}")
 def ver_controle(request: Request, cid: int, _u: Usuario = Logado, db: Session = Depends(banco.get_db)):
     c = db.get(Controle, cid) or _404()
-    acumulado, linhas = 0, []
-    for m in c.movimentos:
+    # Agrupa por mês (mais recente primeiro), com o total do mês e o saldo ao fim dele.
+    acumulado, meses = 0, []
+    for m in c.movimentos:  # já vem em ordem de competência
         acumulado += m.valor
-        linhas.append((m, acumulado))
-    return render(request, "controle.html", c=c, linhas=list(reversed(linhas)), saldo=acumulado)
+        if not meses or meses[-1]["comp"] != m.comp:
+            meses.append({"comp": m.comp, "linhas": [], "total": 0})
+        meses[-1]["linhas"].append((m, acumulado))
+        meses[-1]["total"] += m.valor
+        meses[-1]["saldo"] = acumulado
+    for mes in meses:
+        mes["linhas"].reverse()
+    return render(request, "controle.html", c=c, meses=list(reversed(meses)), saldo=acumulado)
 
 
 @app.post("/controles/{cid}")
